@@ -34,10 +34,13 @@ class ListenTogetherFirebaseClient {
     fun connect(code: String): Flow<WsMessage> = callbackFlow {
         sessionCode = code
         val ref = db.getReference("sessions/$code/messages")
+        val joinTime = System.currentTimeMillis()
 
         val listener = object : ChildEventListener {
             override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
                 val msg = snapshot.getValue(WsMessage::class.java) ?: return
+                // Ignore pesan lama sebelum join
+                if (msg.timestamp < joinTime) return
                 if (msg.senderId != clientId) {
                     trySend(msg)
                 }
@@ -48,8 +51,7 @@ class ListenTogetherFirebaseClient {
             override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
 
-        // Hanya listen pesan baru dari sekarang
-        ref.limitToLast(1).addChildEventListener(listener)
+        ref.addChildEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
     }
 
