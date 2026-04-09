@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
@@ -45,6 +47,7 @@ class ListenTogetherViewModel(
 
     private val firebase = ListenTogetherFirebaseClient()
     private var listenJob: Job? = null
+    private var syncJob: Job? = null
     private var participantsJob: Job? = null
 
     private fun generateCode(): String = Random.nextInt(100000, 999999).toString()
@@ -55,6 +58,30 @@ class ListenTogetherViewModel(
             listOf(Participant(firebase.clientId, "You", true)))
         startListening(code, true)
         observeParticipants(code)
+        startSyncing(code)
+    }
+
+    private fun startSyncing(code: String) {
+        syncJob?.cancel()
+        syncJob = viewModelScope.launch {
+            val browser = playerViewModel.browser.first { it != null }!!
+            while (true) {
+                val mediaItem = playerViewModel.playerState.current.value?.mediaItem
+                if (mediaItem != null) {
+                    firebase.send(code, WsMessage(
+                        type = "SYNC",
+                        trackId = mediaItem.mediaId,
+                        extensionId = mediaItem.mediaMetadata.extras?.getString("extensionId"),
+                        positionMs = browser.currentPosition,
+                        isPlaying = browser.isPlaying,
+                        senderId = firebase.clientId,
+                        senderName = "Host",
+                        timestamp = System.currentTimeMillis()
+                    ))
+                }
+                delay(3000)
+            }
+        }
     }
 
     fun startListening(code: String, isHost: Boolean) {
@@ -63,19 +90,17 @@ class ListenTogetherViewModel(
             firebase.connect(code).collect { msg ->
                 if (msg.type == "SYNC" && msg.trackId != null) {
                     if (!isHost) {
-                        val browser = playerViewModel.browser.value
-                        if (browser != null) {
-                            val currentId = playerViewModel.playerState.current.value
-                                ?.mediaItem?.mediaId
-                            if (currentId != msg.trackId) {
-                                val idx = playerViewModel.queue.indexOfFirst {
-                                    it.mediaId == msg.trackId
-                                }
-                                if (idx >= 0) playerViewModel.play(idx)
+                        val browser = playerViewModel.browser.first { it != null }!!
+                        val currentId = playerViewModel.playerState.current.value
+                            ?.mediaItem?.mediaId
+                        if (currentId != msg.trackId) {
+                            val idx = playerViewModel.queue.indexOfFirst {
+                                it.mediaId == msg.trackId
                             }
-                            browser.seekTo(msg.positionMs)
-                            if (msg.isPlaying) browser.play() else browser.pause()
+                            if (idx >= 0) playerViewModel.play(idx)
                         }
+                        browser.seekTo(msg.positionMs)
+                        if (msg.isPlaying) browser.play() else browser.pause()
                     }
                     _syncEvent.emit(SyncEvent(
                         msg.trackId, msg.extensionId, msg.positionMs, msg.isPlaying
@@ -106,6 +131,7 @@ class ListenTogetherViewModel(
 
     fun leaveSession() {
         listenJob?.cancel()
+        syncJob?.cancel()
         participantsJob?.cancel()
         _participants.value = emptyList()
         _state.value = ListenTogetherState.Idle
