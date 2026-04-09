@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import dev.brahmkshatriya.echo.common.models.Track
 import dev.brahmkshatriya.echo.ui.listentogether.ListenTogetherFirebaseClient
 import dev.brahmkshatriya.echo.ui.listentogether.WsMessage
-import dev.brahmkshatriya.echo.playback.MediaItemUtils.extensionId
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,14 +28,12 @@ class ListenTogetherManager(context: Context) {
         get() = prefs.getBoolean("is_host", false)
         set(value) = prefs.edit().putBoolean("is_host", value).apply()
 
-    // Kita tambahkan parameter extensionId eksplisit agar tidak bingung nyari di objek Track
     fun updateNowPlaying(track: Track, extensionId: String?, position: Long, isPlaying: Boolean) {
         val roomId = currentRoomId ?: return
         if (!isHost) return
-
         scope.launch {
             val ref = db.getReference("sessions/\$roomId/messages").push()
-            val msg = WsMessage(
+            ref.setValue(WsMessage(
                 type = "SYNC",
                 trackId = track.id,
                 extensionId = extensionId,
@@ -45,8 +42,7 @@ class ListenTogetherManager(context: Context) {
                 senderId = firebaseClient.clientId,
                 senderName = username,
                 timestamp = System.currentTimeMillis()
-            )
-            ref.setValue(msg)
+            ))
         }
     }
 }
