@@ -99,7 +99,8 @@ class ListenTogetherViewModel(
                             }
                             if (idx >= 0) playerViewModel.play(idx)
                         }
-                        browser.seekTo(msg.positionMs)
+                        val pos = browser.currentPosition
+                        if (Math.abs(pos - msg.positionMs) > 3000) browser.seekTo(msg.positionMs)
                         if (msg.isPlaying) browser.play() else browser.pause()
                     }
                     _syncEvent.emit(SyncEvent(
