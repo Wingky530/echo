@@ -2,6 +2,7 @@ package dev.brahmkshatriya.echo.ui.listentogether
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -41,48 +42,59 @@ class ListenTogetherViewModel : ViewModel() {
     private val _syncEvent = MutableSharedFlow<SyncEvent>()
     val syncEvent: SharedFlow<SyncEvent> = _syncEvent
 
-    private val wsClient = ListenTogetherWsClient()
-
-    init {
-        viewModelScope.launch {
-            wsClient.incoming.collect { msg -> handleMessage(msg) }
-        }
-    }
+    private val firebase = ListenTogetherFirebaseClient()
+    private var listenJob: Job? = null
+    private var participantsJob: Job? = null
 
     fun createSession(trackId: String?, extensionId: String?) {
         val code = generateCode()
         _state.value = ListenTogetherState.Connecting
+
         viewModelScope.launch {
-            wsClient.connect(
-                sessionCode = code,
-                onOpen = {
-                    _state.value = ListenTogetherState.Active(
-                        sessionCode = code,
-                        isHost = true,
-                        participants = listOf(
-                            Participant(wsClient.clientId, "You", isHost = true)
-                        )
-                    )
-                },
-                onError = { _state.value = ListenTogetherState.Error(it) }
-            )
+            try {
+                // Host langsung aktif, tidak perlu handshake
+                _state.value = ListenTogetherState.Active(
+                    sessionCode = code,
+                    isHost = true,
+                    participants = listOf(Participant(firebase.clientId, "You", isHost = true))
+                )
+
+                // Mulai listen ke messages (untuk JOIN/LEAVE dari client)
+                startListening(code, isHost = true)
+                observeParticipants(code)
+
+            } catch (e: Exception) {
+                _state.value = ListenTogetherState.Error(e.message ?: "Gagal membuat sesi")
+            }
         }
     }
 
     fun joinSession(code: String) {
         _state.value = ListenTogetherState.Connecting
+        val cleanCode = code.uppercase().trim()
+
         viewModelScope.launch {
-            wsClient.connect(
-                sessionCode = code.uppercase().trim(),
-                onOpen = {
-                    _state.value = ListenTogetherState.Active(
-                        sessionCode = code,
-                        isHost = false
-                    )
-                    wsClient.send(WsMessage(type = "JOIN", senderId = wsClient.clientId))
-                },
-                onError = { _state.value = ListenTogetherState.Error(it) }
-            )
+            try {
+                _state.value = ListenTogetherState.Active(
+                    sessionCode = cleanCode,
+                    isHost = false
+                )
+
+                // Kirim JOIN ke Firebase
+                firebase.send(cleanCode, WsMessage(
+                    type = "JOIN",
+                    senderId = firebase.clientId,
+                    senderName = "User",
+                    timestamp = System.currentTimeMillis()
+                ))
+
+                // Mulai dengarkan SYNC dari host
+                startListening(cleanCode, isHost = false)
+                observeParticipants(cleanCode)
+
+            } catch (e: Exception) {
+                _state.value = ListenTogetherState.Error(e.message ?: "Gagal bergabung")
+            }
         }
     }
 
@@ -94,53 +106,56 @@ class ListenTogetherViewModel : ViewModel() {
     ) {
         val s = _state.value as? ListenTogetherState.Active ?: return
         if (!s.isHost) return
-        wsClient.send(
-            WsMessage(
-                type = "SYNC",
-                trackId = trackId,
-                extensionId = extensionId,
-                positionMs = positionMs,
-                isPlaying = isPlaying,
-                senderId = wsClient.clientId
-            )
-        )
+
+        firebase.send(s.sessionCode, WsMessage(
+            type = "SYNC",
+            trackId = trackId,
+            extensionId = extensionId,
+            positionMs = positionMs,
+            isPlaying = isPlaying,
+            senderId = firebase.clientId,
+            timestamp = System.currentTimeMillis()
+        ))
     }
 
     fun leaveSession() {
-        wsClient.send(WsMessage(type = "LEAVE", senderId = wsClient.clientId))
-        wsClient.disconnect()
+        val s = _state.value as? ListenTogetherState.Active ?: return
+        firebase.send(s.sessionCode, WsMessage(
+            type = "LEAVE",
+            senderId = firebase.clientId,
+            timestamp = System.currentTimeMillis()
+        ))
+        listenJob?.cancel()
+        participantsJob?.cancel()
         _state.value = ListenTogetherState.Idle
     }
 
-    private fun handleMessage(msg: WsMessage) {
-        when (msg.type) {
-            "SYNC" -> {
-                val s = _state.value as? ListenTogetherState.Active ?: return
-                if (s.isHost) return
-                viewModelScope.launch {
-                    _syncEvent.emit(
-                        SyncEvent(
-                            trackId = msg.trackId ?: return@launch,
-                            extensionId = msg.extensionId,
-                            positionMs = msg.positionMs,
-                            isPlaying = msg.isPlaying
-                        )
-                    )
+    private fun startListening(code: String, isHost: Boolean) {
+        listenJob?.cancel()
+        listenJob = viewModelScope.launch {
+            firebase.connect(code).collect { msg ->
+                when (msg.type) {
+                    "SYNC" -> {
+                        if (!isHost) {
+                            _syncEvent.emit(SyncEvent(
+                                trackId = msg.trackId ?: return@collect,
+                                extensionId = msg.extensionId,
+                                positionMs = msg.positionMs,
+                                isPlaying = msg.isPlaying
+                            ))
+                        }
+                    }
                 }
             }
-            "JOIN" -> {
-                val s = _state.value as? ListenTogetherState.Active ?: return
-                val updated = s.participants.toMutableList()
-                if (updated.none { it.id == msg.senderId }) {
-                    updated.add(Participant(msg.senderId, msg.senderName ?: "User"))
-                }
-                _state.value = s.copy(participants = updated)
-            }
-            "LEAVE" -> {
-                val s = _state.value as? ListenTogetherState.Active ?: return
-                _state.value = s.copy(
-                    participants = s.participants.filter { it.id != msg.senderId }
-                )
+        }
+    }
+
+    private fun observeParticipants(code: String) {
+        participantsJob?.cancel()
+        participantsJob = viewModelScope.launch {
+            firebase.observeParticipants(code).collect { participants ->
+                val s = _state.value as? ListenTogetherState.Active ?: return@collect
+                _state.value = s.copy(participants = participants)
             }
         }
     }
@@ -152,6 +167,7 @@ class ListenTogetherViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
-        wsClient.disconnect()
+        val s = _state.value as? ListenTogetherState.Active
+        s?.let { leaveSession() }
     }
 }
