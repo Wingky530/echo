@@ -24,6 +24,8 @@ import dev.brahmkshatriya.echo.databinding.DialogSettingsBinding
 import dev.brahmkshatriya.echo.extensions.db.models.UserEntity.Companion.toEntity
 import dev.brahmkshatriya.echo.ui.common.FragmentUtils.openFragment
 import dev.brahmkshatriya.echo.ui.download.DownloadFragment
+import dev.brahmkshatriya.echo.ui.listentogether.ListenTogetherBottomSheet
+import dev.brahmkshatriya.echo.ui.listentogether.ListenTogetherSettingsFragment
 import dev.brahmkshatriya.echo.ui.download.DownloadViewModel
 import dev.brahmkshatriya.echo.ui.extensions.ExtensionInfoFragment
 import dev.brahmkshatriya.echo.ui.extensions.ExtensionInfoFragment.Companion.openLink
@@ -94,6 +96,20 @@ class SettingsBottomSheet : BottomSheetDialogFragment(R.layout.dialog_settings) 
                     null, ExtensionInfoFragment.getBundle(extension)
                 )
             }
+        }
+
+        binding.listenTogether.setOnClickListener {
+            dismiss()
+            ListenTogetherBottomSheet.show(
+                parentFragmentManager,
+                extensionId = "",
+                trackId = null
+            )
+        }
+
+        binding.listenTogetherSettings.setOnClickListener {
+            dismiss()
+            requireActivity().openFragment<ListenTogetherSettingsFragment>()
         }
 
         binding.manageExtension.setOnClickListener {

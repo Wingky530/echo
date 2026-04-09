@@ -178,6 +178,35 @@
                     app:iconSize="24dp" />
             </com.google.android.material.button.MaterialButtonGroup>
 
+            <com.google.android.material.button.MaterialButtonGroup
+                style="@style/Widget.Material3.MaterialButtonGroup.Connected"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:spacing="-4dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/listenTogether"
+                    style="@style/SideBarButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:text="@string/listen_together_settings"
+                    app:icon="@drawable/ic_listen_together" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/listenTogetherSettings"
+                    style="@style/IconButtonTonal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0"
+                    android:minHeight="64dp"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="20dp"
+                    app:icon="@drawable/ic_settings_outline"
+                    app:iconSize="24dp" />
+
+            </com.google.android.material.button.MaterialButtonGroup>
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

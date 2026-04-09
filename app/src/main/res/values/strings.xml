@@ -464,4 +464,9 @@
         <item quantity="one">%d pendengar</item>
         <item quantity="other">%d pendengar</item>
     </plurals>
+    <string name="listen_together_settings">Listen Together</string>
+    <string name="listen_together_profile">Profil Listen Together</string>
+    <string name="listen_together_username">Username</string>
+    <string name="listen_together_username_hint">Masukkan username kamu</string>
+    <string name="listen_together_save">Simpan</string>
 </resources>
