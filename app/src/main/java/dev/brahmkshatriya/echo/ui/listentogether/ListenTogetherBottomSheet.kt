@@ -25,7 +25,8 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                 putString("trackId", trackId)
             }
         }
-        fun show(fm: FragmentManager, extensionId: String, trackId: String?) = newInstance(extensionId, trackId).show(fm, TAG)
+        fun show(fm: FragmentManager, extensionId: String, trackId: String?) =
+            newInstance(extensionId, trackId).show(fm, TAG)
     }
 
     private var _binding: BottomSheetListenTogetherBinding? = null
@@ -40,12 +41,22 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         observe(vm.state) { renderState(it) }
-        binding.btnCreate.setOnClickListener { vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId")) }
+        binding.btnCreate.setOnClickListener {
+            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"))
+        }
         binding.btnJoin.setOnClickListener {
             val code = binding.etCode.text?.toString()?.trim()
             if (!code.isNullOrBlank() && code.length >= 6) vm.joinSession(code)
         }
         binding.btnLeave.setOnClickListener { vm.leaveSession() }
+        binding.btnCopy.setOnClickListener {
+            val state = vm.state.value
+            if (state is ListenTogetherState.Active) {
+                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("session_code", state.sessionCode))
+                Toast.makeText(requireContext(), R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun renderState(state: ListenTogetherState) {
@@ -53,6 +64,14 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         binding.panelActive.isVisible = state is ListenTogetherState.Active
         if (state is ListenTogetherState.Active) {
             binding.tvSessionCode.text = state.sessionCode
+            binding.tvRole.text = if (state.isHost)
+                getString(R.string.listen_together_you_host)
+            else
+                getString(R.string.listen_together_listening_with)
+            val listenerCount = (state.participants.size - 1).coerceAtLeast(0)
+            binding.tvParticipants.text = resources.getQuantityString(
+                R.plurals.listen_together_participants, listenerCount, listenerCount
+            )
         }
     }
 

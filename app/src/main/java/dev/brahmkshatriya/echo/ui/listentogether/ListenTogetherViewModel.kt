@@ -40,8 +40,12 @@ class ListenTogetherViewModel(
     private val _syncEvent = MutableSharedFlow<SyncEvent>()
     val syncEvent: SharedFlow<SyncEvent> = _syncEvent
 
+    private val _participants = MutableStateFlow<List<Participant>>(emptyList())
+    val participants: StateFlow<List<Participant>> = _participants
+
     private val firebase = ListenTogetherFirebaseClient()
     private var listenJob: Job? = null
+    private var participantsJob: Job? = null
 
     private fun generateCode(): String = Random.nextInt(100000, 999999).toString()
 
@@ -50,6 +54,7 @@ class ListenTogetherViewModel(
         _state.value = ListenTogetherState.Active(code, true,
             listOf(Participant(firebase.clientId, "You", true)))
         startListening(code, true)
+        observeParticipants(code)
     }
 
     fun startListening(code: String, isHost: Boolean) {
@@ -80,13 +85,29 @@ class ListenTogetherViewModel(
         }
     }
 
+    private fun observeParticipants(code: String) {
+        participantsJob?.cancel()
+        participantsJob = viewModelScope.launch {
+            firebase.observeParticipants(code).collect { list ->
+                _participants.value = list
+                val current = _state.value
+                if (current is ListenTogetherState.Active) {
+                    _state.value = current.copy(participants = list)
+                }
+            }
+        }
+    }
+
     fun joinSession(code: String) {
         _state.value = ListenTogetherState.Active(code, false)
         startListening(code, false)
+        observeParticipants(code)
     }
 
     fun leaveSession() {
         listenJob?.cancel()
+        participantsJob?.cancel()
+        _participants.value = emptyList()
         _state.value = ListenTogetherState.Idle
     }
 }
