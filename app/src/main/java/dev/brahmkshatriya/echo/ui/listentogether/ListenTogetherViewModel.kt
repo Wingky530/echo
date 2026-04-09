@@ -31,7 +31,8 @@ data class SyncEvent(
     val trackId: String,
     val extensionId: String?,
     val positionMs: Long,
-    val isPlaying: Boolean
+    val isPlaying: Boolean,
+    val timestamp: Long 
 )
 
 class ListenTogetherViewModel : ViewModel() {
@@ -39,7 +40,6 @@ class ListenTogetherViewModel : ViewModel() {
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
 
-    // Client observe ini untuk sync player
     private val _syncEvent = MutableSharedFlow<SyncEvent>()
     val syncEvent: SharedFlow<SyncEvent> = _syncEvent
 
@@ -61,7 +61,7 @@ class ListenTogetherViewModel : ViewModel() {
             senderName = "Host",
             timestamp = joinedAt
         ))
-        startListening(code, isHost = true, joinedAt = joinedAt)
+        startListening(code, isHost = true)
         observeParticipants(code)
     }
 
@@ -82,7 +82,7 @@ class ListenTogetherViewModel : ViewModel() {
                     sessionCode = cleanCode,
                     isHost = false
                 )
-                startListening(cleanCode, isHost = false, joinedAt = joinedAt)
+                startListening(cleanCode, isHost = false)
                 observeParticipants(cleanCode)
             } catch (e: Exception) {
                 _state.value = ListenTogetherState.Error(e.message ?: "Gagal bergabung")
@@ -90,7 +90,6 @@ class ListenTogetherViewModel : ViewModel() {
         }
     }
 
-    // Dipanggil dari PlayerViewModel saat host ganti track / seek / play/pause
     fun broadcastSync(
         trackId: String,
         extensionId: String?,
@@ -122,10 +121,10 @@ class ListenTogetherViewModel : ViewModel() {
         _state.value = ListenTogetherState.Idle
     }
 
-    private fun startListening(code: String, isHost: Boolean, joinedAt: Long) {
+    private fun startListening(code: String, isHost: Boolean) {
         listenJob?.cancel()
         listenJob = viewModelScope.launch {
-            firebase.connect(code, joinedAt).collect { msg ->
+            firebase.connect(code).collect { msg ->
                 when (msg.type) {
                     "SYNC" -> {
                         if (!isHost) {
@@ -133,7 +132,8 @@ class ListenTogetherViewModel : ViewModel() {
                                 trackId = msg.trackId ?: return@collect,
                                 extensionId = msg.extensionId,
                                 positionMs = msg.positionMs,
-                                isPlaying = msg.isPlaying
+                                isPlaying = msg.isPlaying,
+                                timestamp = msg.timestamp 
                             ))
                         }
                     }

@@ -72,7 +72,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                 ?: arguments?.getString("extensionId")
                 ?: return@observe
 
-            // Broadcast posisi sebenarnya dari MediaController
             val positionMs = playerVm.browser.value?.currentPosition ?: 0L
 
             vm.broadcastSync(
@@ -129,21 +128,26 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                         extras = mapOf(EXTENSION_ID to extId)
                     )
                     playerVm.play(extId, track, false)
-                    // Seek ke posisi host setelah load
-                    if (event.positionMs > 0) {
-                        playerVm.seekTo(event.positionMs)
-                    }
-                    return@collect
+                    // ✅ FIX 1: Hapus return@collect biar fungsi di bawah tetep jalan
                 }
 
-                // 2. Sync posisi — hanya jika drift > 3 detik
+                // ✅ FIX 2: Kalkulasi Kompensasi Latency Biar Gak Delay
+                val networkLatency = System.currentTimeMillis() - event.timestamp
+                var expectedPosition = event.positionMs
+                
+                // Kalau lagu lagi jalan, tambahin latency jaringan ke posisi
+                if (event.isPlaying) {
+                    expectedPosition += networkLatency
+                }
+
+                // ✅ FIX 3: Sync posisi — toleransi 2.5 detik biar player gak kaget
                 val localPos = playerVm.browser.value?.currentPosition ?: 0L
-                val drift = abs(localPos - event.positionMs)
-                if (drift > 3000) {
-                    playerVm.seekTo(event.positionMs)
+                val drift = abs(localPos - expectedPosition)
+                if (drift > 2500) {
+                    playerVm.seekTo(expectedPosition)
                 }
 
-                // 3. Sync play/pause
+                // 4. Sync play/pause
                 val localIsPlaying = playerVm.playerState.current.value?.isPlaying ?: false
                 if (localIsPlaying != event.isPlaying) {
                     playerVm.setPlaying(event.isPlaying)
