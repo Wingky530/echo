@@ -54,30 +54,33 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        observe(vm.state) { state -> 
-            renderState(state) 
-            
-            // ✅ FIX 1: Host otomatis nyetor lagu pas baru banget bikin room
-            if (state is ListenTogetherState.Active && state.isHost && lastBroadcastTrackId == null) {
-                val current = playerVm.playerState.current.value ?: return@observe
-                val track = current.track ?: return@observe
-                val extId = track.extras[EXTENSION_ID] ?: arguments?.getString("extensionId") ?: ""
-                val positionMs = playerVm.browser.value?.currentPosition ?: 0L
-                
-                vm.broadcastSync(track.id, extId, positionMs, current.isPlaying)
-                lastBroadcastTrackId = track.id
-                lastBroadcastIsPlaying = current.isPlaying
+        observe(vm.state) { renderState(it) }
+
+        // =============================================
+        // ✅ HOST: Heartbeat Sync (Kirim ping tiap 2 dtk biar seekbar konek)
+        // =============================================
+        viewLifecycleOwner.lifecycleScope.launch {
+            while (true) {
+                delay(2000) 
+                val state = vm.state.value
+                if (state is ListenTogetherState.Active && state.isHost) {
+                    val current = playerVm.playerState.current.value ?: continue
+                    val track = current.track ?: continue
+                    val extId = track.extras[EXTENSION_ID] ?: arguments?.getString("extensionId") ?: ""
+                    val positionMs = playerVm.browser.value?.currentPosition ?: 0L
+                    
+                    vm.broadcastSync(track.id, extId, positionMs, current.isPlaying)
+                }
             }
         }
 
         // =============================================
-        // HOST: Broadcast saat track berubah
+        // HOST: Broadcast Reaksi Cepat (Play/Pause & Next)
         // =============================================
         observe(playerVm.playerState.current) { current ->
             val s = vm.state.value as? ListenTogetherState.Active ?: return@observe
             if (!s.isHost) return@observe
             val track = current?.track ?: return@observe
-            // ✅ FIX 2: Jangan return kalau null, jadikan string kosong
             val extId = track.extras[EXTENSION_ID] ?: arguments?.getString("extensionId") ?: ""
             val positionMs = playerVm.browser.value?.currentPosition ?: 0L
 
@@ -86,9 +89,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             lastBroadcastIsPlaying = current.isPlaying
         }
 
-        // =============================================
-        // HOST: Broadcast saat play/pause berubah
-        // =============================================
         observe(playerVm.isPlaying) { isPlaying ->
             val s = vm.state.value as? ListenTogetherState.Active ?: return@observe
             if (!s.isHost) return@observe
@@ -117,25 +117,25 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                     val track = Track(id = event.trackId, title = "Listen Together", extras = mapOf(EXTENSION_ID to extId))
                     playerVm.play(extId, track, false)
                     
-                    // ✅ FIX 3: Kasih jeda 500ms biar ExoPlayer siapin lagu sblm di seek.
-                    delay(500) 
+                    // ✅ Beri jeda agak lama biar ExoPlayer beres muat lagu baru
+                    delay(1200) 
                 }
 
-                // 2. Kalkulasi Kompensasi Latency
+                // 2. Play/Pause
+                val localIsPlaying = playerVm.playerState.current.value?.isPlaying ?: false
+                if (localIsPlaying != event.isPlaying) {
+                    playerVm.setPlaying(event.isPlaying)
+                }
+
+                // 3. Kalkulasi Posisi
                 val networkLatency = System.currentTimeMillis() - event.timestamp
                 var expectedPosition = event.positionMs
                 if (event.isPlaying) { expectedPosition += networkLatency }
 
-                // 3. Sync posisi — toleransi 2.5 detik
+                // 4. Force Sync jika meleset jauh
                 val localPos = playerVm.browser.value?.currentPosition ?: 0L
                 if (abs(localPos - expectedPosition) > 2500) {
                     playerVm.seekTo(expectedPosition)
-                }
-
-                // 4. Sync play/pause
-                val localIsPlaying = playerVm.playerState.current.value?.isPlaying ?: false
-                if (localIsPlaying != event.isPlaying) {
-                    playerVm.setPlaying(event.isPlaying)
                 }
             }
         }

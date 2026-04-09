@@ -33,20 +33,20 @@ class ListenTogetherFirebaseClient {
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                // Parse manual biar 100% aman dari R8 / Obfuscation
-                val type = snapshot.child("type").getValue(String::class.java) ?: ""
+                // ✅ PARSING AMAN ANTI-CRASH
+                val type = snapshot.child("type").value?.toString() ?: ""
                 if (type != "SYNC") return
                 
-                val sender = snapshot.child("senderId").getValue(String::class.java) ?: ""
+                val sender = snapshot.child("senderId").value?.toString() ?: ""
                 if (sender != clientId) {
                     val msg = WsMessage(
                         type = type,
-                        trackId = snapshot.child("trackId").getValue(String::class.java),
-                        extensionId = snapshot.child("extensionId").getValue(String::class.java),
-                        positionMs = snapshot.child("positionMs").getValue(Long::class.java) ?: 0L,
-                        isPlaying = snapshot.child("isPlaying").getValue(Boolean::class.java) ?: false,
+                        trackId = snapshot.child("trackId").value?.toString(),
+                        extensionId = snapshot.child("extensionId").value?.toString(),
+                        positionMs = snapshot.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L,
+                        isPlaying = snapshot.child("isPlaying").value?.toString()?.toBoolean() ?: false,
                         senderId = sender,
-                        timestamp = snapshot.child("timestamp").getValue(Long::class.java) ?: 0L
+                        timestamp = snapshot.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L
                     )
                     trySend(msg)
                 }
@@ -85,9 +85,9 @@ class ListenTogetherFirebaseClient {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val list = snapshot.children.mapNotNull { child ->
-                    val id = child.child("id").getValue(String::class.java) ?: return@mapNotNull null
-                    val name = child.child("name").getValue(String::class.java) ?: "User"
-                    val isHost = child.child("isHost").getValue(Boolean::class.java) ?: false
+                    val id = child.child("id").value?.toString() ?: return@mapNotNull null
+                    val name = child.child("name").value?.toString() ?: "User"
+                    val isHost = child.child("isHost").value?.toString()?.toBoolean() ?: false
                     Participant(id, name, isHost)
                 }
                 trySend(list)
