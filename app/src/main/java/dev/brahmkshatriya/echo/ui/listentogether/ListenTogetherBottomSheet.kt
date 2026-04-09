@@ -19,6 +19,7 @@ import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import dev.brahmkshatriya.echo.utils.ContextUtils.observe
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
+import kotlin.math.abs
 
 class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     companion object {
@@ -35,11 +36,9 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     private var _binding: BottomSheetListenTogetherBinding? = null
     private val binding get() = _binding!!
     
-    // Inject ViewModel
     private val vm: ListenTogetherViewModel by activityViewModel()
     private val playerVm: PlayerViewModel by activityViewModel()
 
-    // Variabel Anti-Spam
     private var lastTrackId: String? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -58,25 +57,38 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         }
         binding.btnLeave.setOnClickListener { 
             vm.leaveSession()
-            lastTrackId = null // Reset memori lagu pas keluar
+            lastTrackId = null
         }
 
-        // --- PEREKAT LOGIKA SUARA & ANTI-SPAM ---
+        // --- TRUE SYNC LOGIC ---
         viewLifecycleOwner.lifecycleScope.launch {
             vm.syncEvent.collect { event ->
                 val state = vm.state.value as? ListenTogetherState.Active
                 if (state != null && !state.isHost) {
                     val extId = event.extensionId ?: arguments?.getString("extensionId") ?: return@collect
                     
-                    // Cek: Apakah lagu yang dikirim Host BERBEDA dengan yang sedang kita dengar?
+                    // 1. SINKRONISASI LAGU (Hanya jika ID berbeda)
                     if (lastTrackId != event.trackId) {
                         lastTrackId = event.trackId
-                        
-                        // Bungkus jadi Track sementara (nanti Echo akan download info aslinya)
                         val track = Track(id = event.trackId, title = "Listen Together Session")
-                        
-                        // Mainkan lagunya! (false = minta Echo fetch audio aslinya pakai extId)
                         playerVm.play(extId, track, false)
+                    }
+
+                    // 2. SINKRONISASI STATUS PLAY/PAUSE (Hanya jika berbeda)
+                    val localIsPlaying = playerVm.playbackState.value?.isPlaying ?: false
+                    if (localIsPlaying != event.isPlaying) {
+                        playerVm.setPlaying(event.isPlaying)
+                    }
+
+                    // 3. SINKRONISASI POSISI (Cek Drift / Selisih Nyata)
+                    // Kita bandingkan posisi player lokal dengan posisi Host dari Firebase
+                    val localPos = playerVm.playbackState.value?.position ?: 0L
+                    val drift = abs(localPos - event.positionMs)
+
+                    // Jika selisih lebih dari 5 detik, baru kita paksa lompat (Seek)
+                    // Ini menghilangkan masalah patah-patah tiap 3 detik.
+                    if (drift > 5000) {
+                        playerVm.seekTo(event.positionMs)
                     }
                 }
             }
