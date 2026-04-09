@@ -111,7 +111,7 @@ class PlayerService : MediaLibraryService() {
         )
         player.addListener(
             TrackingListener(player, scope, extensions, state.current, app.throwFlow,
-                    dev.brahmkshatriya.echo.listentogether.ListenTogetherManager(this))
+                    runCatching { dev.brahmkshatriya.echo.listentogether.ListenTogetherManager(this) }.getOrNull())
         )
         player.addListener(effects)
         app.settings.registerOnSharedPreferenceChangeListener(listener)
