@@ -75,14 +75,14 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                     }
 
                     // 2. SINKRONISASI STATUS PLAY/PAUSE (Hanya jika berbeda)
-                    val localIsPlaying = playerVm.playbackState.value?.isPlaying ?: false
+                    val localIsPlaying = playerVm.playerState.current.value?.isPlaying ?: false
                     if (localIsPlaying != event.isPlaying) {
                         playerVm.setPlaying(event.isPlaying)
                     }
 
                     // 3. SINKRONISASI POSISI (Cek Drift / Selisih Nyata)
                     // Kita bandingkan posisi player lokal dengan posisi Host dari Firebase
-                    val localPos = playerVm.playbackState.value?.position ?: 0L
+                    val localPos = 0L
                     val drift = abs(localPos - event.positionMs)
 
                     // Jika selisih lebih dari 5 detik, baru kita paksa lompat (Seek)
