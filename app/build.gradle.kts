@@ -18,7 +18,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.brahmkshatriya.echo.together"
+        applicationId = "dev.brahmkshatriya.echo"
         minSdk = 24
         targetSdk = 36
         versionCode = gitCount
