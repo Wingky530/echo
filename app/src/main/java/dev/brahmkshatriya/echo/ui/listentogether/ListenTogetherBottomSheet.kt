@@ -19,6 +19,7 @@ import dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.Compa
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import dev.brahmkshatriya.echo.utils.ContextUtils.observe
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
 import kotlin.math.abs
@@ -55,6 +56,26 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         super.onViewCreated(view, savedInstanceState)
 
         observe(vm.state) { renderState(it) }
+
+        // HOST: Periodic sync setiap 2 detik
+        viewLifecycleOwner.lifecycleScope.launch {
+            while (true) {
+                delay(2000)
+                val s = vm.state.value as? ListenTogetherState.Active ?: continue
+                if (!s.isHost) continue
+                val current = playerVm.playerState.current.value ?: continue
+                val track = current.track
+                val extId = track.extras[EXTENSION_ID]
+                    ?: arguments?.getString("extensionId") ?: continue
+                val positionMs = playerVm.browser.value?.currentPosition ?: 0L
+                vm.broadcastSync(
+                    trackId = track.id,
+                    extensionId = extId,
+                    positionMs = positionMs,
+                    isPlaying = current.isPlaying
+                )
+            }
+        }
 
         // =============================================
         // ✅ HOST: Heartbeat Sync (Kirim ping tiap 2 dtk biar seekbar konek)
