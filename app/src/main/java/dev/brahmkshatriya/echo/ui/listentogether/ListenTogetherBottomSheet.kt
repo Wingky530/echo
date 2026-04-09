@@ -143,7 +143,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                 title = "",
                 extras = mapOf(EXTENSION_ID to extId)
             )
-            val item = EchoMediaItem.Tracks.TrackItem(track)
+            val item = EchoMediaItem.TrackItem(track)
             playerVm.play(extId, item, false)
             // Setelah play, seek ke posisi host
             if (event.positionMs > 0) {
