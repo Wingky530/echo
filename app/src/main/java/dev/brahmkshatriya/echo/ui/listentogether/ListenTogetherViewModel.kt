@@ -58,7 +58,7 @@ class ListenTogetherViewModel : ViewModel() {
                 val extId = current.mediaItem.extensionId ?: continue
                 val positionMs = browserProvider?.invoke()?.currentPosition ?: 0L
                 val isPlaying = isPlayingProvider?.invoke() ?: false
-                android.util.Log.d("LT_HOST", "Broadcasting: track=\${track.id} ext=\${extId} pos=\${positionMs}")
+                android.util.Log.d("LT_HOST", "Broadcasting: track=${track.id} ext=${extId} pos=${positionMs}")
                 broadcastSync(
                     trackId = track.id,
                     extensionId = extId,
