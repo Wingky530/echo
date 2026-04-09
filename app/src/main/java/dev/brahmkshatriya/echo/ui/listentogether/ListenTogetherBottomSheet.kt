@@ -70,8 +70,8 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                 delay(2000)
                 val s = vm.state.value as? ListenTogetherState.Active ?: continue
                 if (!s.isHost) continue
-                val mediaItem = playerVm.playerState.current.value?.mediaItem ?: run { android.util.Log.d("LT_HOST", "current is null, skipping"); continue }
-                val track = mediaItem.track
+                val current = playerVm.playerState.current.value ?: run { android.util.Log.d("LT_HOST", "current is null, skipping"); continue }
+                val track = current.track
                 val extId = track.extras[EXTENSION_ID]
                     ?: arguments?.getString("extensionId") ?: continue
                 val positionMs = playerVm.browser.value?.currentPosition ?: 0L
