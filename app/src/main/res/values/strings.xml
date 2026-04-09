@@ -456,8 +456,12 @@
     <string name="listen_together_copy">Salin Kode</string>
     <string name="listen_together_copied">Kode disalin!</string>
     <string name="listen_together_leave">Tinggalkan Sesi</string>
-    <string name="listen_together_participants">%d pendengar</string>
     <string name="listen_together_connecting">Menghubungkan2026</string>
     <string name="listen_together_error">Gagal terhubung</string>
     <string name="listen_together_you_host">Kamu adalah Host</string>
+    <string name="listen_together_listening_with">Mendengarkan bersama</string>
+    <plurals name="listen_together_participants">
+        <item quantity="one">%d pendengar</item>
+        <item quantity="other">%d pendengar</item>
+    </plurals>
 </resources>
