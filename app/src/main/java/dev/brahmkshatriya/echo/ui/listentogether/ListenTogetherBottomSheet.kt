@@ -79,7 +79,9 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                     trackId = track.id,
                     extensionId = extId,
                     positionMs = positionMs,
-                    isPlaying = playerVm.isPlaying.value
+                    isPlaying = playerVm.isPlaying.value,
+                    trackTitle = track.title,
+                    trackArtist = track.artists?.firstOrNull()?.name
                 )
             }
         }
@@ -101,7 +103,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                     lastListenerTrackId = event.trackId
                     val track = Track(
                         id = event.trackId,
-                        title = "Listen Together",
+                        title = event.trackTitle ?: event.trackId,
                         extras = mapOf(EXTENSION_ID to extId)
                     )
                     playerVm.play(extId, track, false)

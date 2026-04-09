@@ -33,6 +33,8 @@ data class SyncEvent(
     val extensionId: String?,
     val positionMs: Long,
     val isPlaying: Boolean,
+    val trackTitle: String? = null,
+    val trackArtist: String? = null,
     val timestamp: Long 
 )
 
@@ -97,7 +99,7 @@ class ListenTogetherViewModel : ViewModel() {
         }
     }
 
-    fun broadcastSync(trackId: String, extensionId: String?, positionMs: Long, isPlaying: Boolean) {
+    fun broadcastSync(trackId: String, extensionId: String?, positionMs: Long, isPlaying: Boolean, trackTitle: String? = null, trackArtist: String? = null) {
         val s = _state.value as? ListenTogetherState.Active ?: return
         if (!s.isHost) return
         firebase.send(s.sessionCode, WsMessage(
@@ -106,6 +108,8 @@ class ListenTogetherViewModel : ViewModel() {
             extensionId = extensionId,
             positionMs = positionMs,
             isPlaying = isPlaying,
+            trackTitle = trackTitle,
+            trackArtist = trackArtist,
             senderId = firebase.clientId,
             timestamp = System.currentTimeMillis()
         ))
@@ -129,6 +133,8 @@ class ListenTogetherViewModel : ViewModel() {
                         extensionId = msg.extensionId,
                         positionMs = msg.positionMs,
                         isPlaying = msg.isPlaying,
+                        trackTitle = msg.trackTitle,
+                        trackArtist = msg.trackArtist,
                         timestamp = msg.timestamp 
                     ))
                 }
