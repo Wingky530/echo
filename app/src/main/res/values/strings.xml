@@ -450,23 +450,23 @@
     <string name="import_settings">Import Settings</string>
     <string name="import_settings_summary">Import settings from a file</string>
     <string name="listen_together">Listen Together</string>
-    <string name="listen_together_create">Buat Sesi</string>
-    <string name="listen_together_join">Gabung Sesi</string>
-    <string name="listen_together_code_hint">Masukkan kode 6 digit</string>
-    <string name="listen_together_copy">Salin Kode</string>
-    <string name="listen_together_copied">Kode disalin!</string>
-    <string name="listen_together_leave">Tinggalkan Sesi</string>
+    <string name="listen_together_create">Create Session</string>
+    <string name="listen_together_join">Join Session</string>
+    <string name="listen_together_code_hint">Enter 6-digit code</string>
+    <string name="listen_together_copy">Copy Code</string>
+    <string name="listen_together_copied">Code copied!</string>
+    <string name="listen_together_leave">Leave Session</string>
     <string name="listen_together_connecting">Menghubungkan2026</string>
-    <string name="listen_together_error">Gagal terhubung</string>
-    <string name="listen_together_you_host">Kamu adalah Host</string>
-    <string name="listen_together_listening_with">Mendengarkan bersama</string>
+    <string name="listen_together_error">Connection failed</string>
+    <string name="listen_together_you_host">You are the Host</string>
+    <string name="listen_together_listening_with">Listening with</string>
     <plurals name="listen_together_participants">
-        <item quantity="one">%d pendengar</item>
-        <item quantity="other">%d pendengar</item>
+        <item quantity="one">%d listener</item>
+        <item quantity="other">%d listeners</item>
     </plurals>
     <string name="listen_together_settings">Listen Together</string>
-    <string name="listen_together_profile">Profil Listen Together</string>
+    <string name="listen_together_profile">Listen Together Profile</string>
     <string name="listen_together_username">Username</string>
-    <string name="listen_together_username_hint">Masukkan username kamu</string>
-    <string name="listen_together_save">Simpan</string>
+    <string name="listen_together_username_hint">Enter your username</string>
+    <string name="listen_together_save">Save</string>
 </resources>
