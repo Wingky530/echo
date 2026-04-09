@@ -43,7 +43,6 @@ class TrackingListener(
 
     private val musicList = extensions.music
     private val trackerList = extensions.tracker
-
     private var current: MediaItem? = null
     private var previousId: String? = null
 
@@ -54,30 +53,26 @@ class TrackingListener(
         }
     }
 
-    private fun trackMedia(
-        block: suspend TrackerClient.(extension: Extension<*>, details: TrackDetails?) -> Unit
-    ) {
+    private fun trackMedia(block: suspend TrackerClient.(extension: Extension<*>, details: TrackDetails?) -> Unit) {
         scope.launch {
             val details = getDetails()
-            val prevExtension = previousId?.takeIf { details?.extensionId != it }
-                ?.let { musicList.getExtension(it) }
+            val prevExtension = previousId?.takeIf { details?.extensionId != it }?.let { musicList.getExtension(it) }
             val extension = musicList.getExtension(details?.extensionId)
             val trackers = trackerList.value.filter { it.isEnabled }
             prevExtension?.runIf<TrackerClient>(throwableFlow) { block(prevExtension, null) }
             extension?.runIf<TrackerClient>(throwableFlow) { block(extension, details) }
-            trackers.forEach {
-                launch { it.runIf<TrackerClient>(throwableFlow) { block(it, details) } }
-            }
+            trackers.forEach { launch { it.runIf<TrackerClient>(throwableFlow) { block(it, details) } } }
         }
     }
 
     private val mutex = Mutex()
     private val timers = mutableMapOf<String, PauseTimer>()
+
     private fun onTrackChanged(mediaItem: MediaItem?) {
         previousId = current?.extensionId
         current = mediaItem
         mediaItem?.track?.let { track ->
-            listenTogetherManager?.updateNowPlaying(track, player.currentPosition, player.isPlaying)
+            listenTogetherManager?.updateNowPlaying(track, mediaItem.extensionId, player.currentPosition, player.isPlaying)
         }
         scope.launch {
             mutex.withLock {
@@ -87,14 +82,11 @@ class TrackingListener(
             trackMedia { extension, details ->
                 onTrackChanged(details)
                 details ?: return@trackMedia
-                val duration = (this as? TrackerMarkClient)?.getMarkAsPlayedDuration(details)
-                    ?: return@trackMedia
+                val duration = (this as? TrackerMarkClient)?.getMarkAsPlayedDuration(details) ?: return@trackMedia
                 mutex.withLock {
                     timers[extension.id] = PauseTimer(scope, duration) {
                         scope.launch {
-                            extension.runIf<TrackerMarkClient>(throwableFlow) {
-                                onMarkAsPlayed(details)
-                            }
+                            extension.runIf<TrackerMarkClient>(throwableFlow) { onMarkAsPlayed(details) }
                         }
                     }
                 }
@@ -103,14 +95,10 @@ class TrackingListener(
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
-        scope.launch {
-            playState.value = getDetails() to isPlaying
-        }
+        scope.launch { playState.value = getDetails() to isPlaying }
     }
 
-    override fun onPositionDiscontinuity(
-        oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int
-    ) {
+    override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
         scope.launch {
             val isPlaying = withContext(Dispatchers.Main) { player.isPlaying }
             playState.value = getDetails() to isPlaying
@@ -119,40 +107,28 @@ class TrackingListener(
         val mediaItem = newPosition.mediaItem ?: return
         if (oldPosition.mediaItem != mediaItem) return
         if (newPosition.positionMs != 0L) return
-
         onTrackChanged(current)
     }
 
-    override fun onPlayerError(error: PlaybackException) {
-        onTrackChanged(null)
-    }
+    override fun onPlayerError(error: PlaybackException) { onTrackChanged(null) }
 
     private val playState = MutableStateFlow<Pair<TrackDetails?, Boolean>>(null to false)
 
     init {
         scope.launch {
             currentFlow.map { it?.let { curr -> curr.mediaItem.takeIf { curr.isLoaded } } }
-                .distinctUntilChanged().collectLatest {
-                    onTrackChanged(it)
-                }
+                .distinctUntilChanged().collectLatest { onTrackChanged(it) }
         }
         scope.launch {
             @OptIn(FlowPreview::class)
-            playState.debounce(500).collectLatest { (_, isPlaying) ->
+            playState.debounce(500).collectLatest { (details, isPlaying) ->
                 mutex.withLock {
-                    timers.forEach { (_, timer) ->
-                        if (isPlaying) timer.resume()
-                        else timer.pause()
-                    }
+                    timers.forEach { (_, timer) -> if (isPlaying) timer.resume() else timer.pause() }
                 }
-                trackMedia { _, details ->
+                trackMedia { _, d -> onPlayingStateChanged(d, isPlaying) }
+                
                 details?.track?.let { track ->
-                    listenTogetherManager?.updateNowPlaying(track, mediaItem.extensionId, player.currentPosition, isPlaying)
-                }
-                details?.track?.let { track ->
-                    listenTogetherManager?.updateNowPlaying(track, mediaItem.extensionId, player.currentPosition, isPlaying)
-                }
-                    onPlayingStateChanged(details, isPlaying)
+                    listenTogetherManager?.updateNowPlaying(track, details.extensionId, player.currentPosition, isPlaying)
                 }
             }
         }
