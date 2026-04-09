@@ -13,6 +13,7 @@ import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import dev.brahmkshatriya.echo.R
+import dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.Companion.EXTENSION_ID
 import dev.brahmkshatriya.echo.common.models.Track
 import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
@@ -49,6 +50,20 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         observe(vm.state) { renderState(it) }
+
+        // HOST: broadcast ke Firebase saat track berubah
+        observe(playerVm.playerState.current) { current ->
+            val s = vm.state.value as? ListenTogetherState.Active ?: return@observe
+            if (!s.isHost) return@observe
+            val track = current?.track ?: return@observe
+            val extId = track.extras[EXTENSION_ID] ?: arguments?.getString("extensionId") ?: return@observe
+            vm.broadcastSync(
+                trackId = track.id,
+                extensionId = extId,
+                positionMs = 0L,
+                isPlaying = current.isPlaying
+            )
+        }
 
         binding.btnCreate.setOnClickListener { vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId")) }
         binding.btnJoin.setOnClickListener {

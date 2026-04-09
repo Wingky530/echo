@@ -53,8 +53,14 @@ class ListenTogetherViewModel : ViewModel() {
         _state.value = ListenTogetherState.Active(
             sessionCode = code,
             isHost = true,
-            participants = listOf(Participant(firebase.clientId, "You", isHost = true))
+            participants = listOf(Participant(firebase.clientId, "Host", isHost = true))
         )
+        firebase.send(code, WsMessage(
+            type = "JOIN",
+            senderId = firebase.clientId,
+            senderName = "Host",
+            timestamp = joinedAt
+        ))
         startListening(code, isHost = true, joinedAt = joinedAt)
         observeParticipants(code)
     }
