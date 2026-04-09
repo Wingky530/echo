@@ -99,6 +99,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
                     ?: return@collect
 
                 // 1. Ganti lagu jika trackId berbeda
+                android.util.Log.d("LT_DEBUG", "SYNC received: track=${event.trackId} title=${event.trackTitle} ext=${event.extensionId} pos=${event.positionMs}")
                 if (lastListenerTrackId != event.trackId) {
                     lastListenerTrackId = event.trackId
                     val track = Track(
