@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import dev.brahmkshatriya.echo.common.models.Track
 import dev.brahmkshatriya.echo.ui.listentogether.ListenTogetherFirebaseClient
 import dev.brahmkshatriya.echo.ui.listentogether.WsMessage
+import dev.brahmkshatriya.echo.playback.MediaItemUtils.extensionId
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +29,8 @@ class ListenTogetherManager(context: Context) {
         get() = prefs.getBoolean("is_host", false)
         set(value) = prefs.edit().putBoolean("is_host", value).apply()
 
-    fun updateNowPlaying(track: Track, position: Long, isPlaying: Boolean) {
+    // Kita tambahkan parameter extensionId eksplisit agar tidak bingung nyari di objek Track
+    fun updateNowPlaying(track: Track, extensionId: String?, position: Long, isPlaying: Boolean) {
         val roomId = currentRoomId ?: return
         if (!isHost) return
 
@@ -37,7 +39,7 @@ class ListenTogetherManager(context: Context) {
             val msg = WsMessage(
                 type = "SYNC",
                 trackId = track.id,
-                extensionId = track.extension,
+                extensionId = extensionId,
                 positionMs = position,
                 isPlaying = isPlaying,
                 senderId = firebaseClient.clientId,

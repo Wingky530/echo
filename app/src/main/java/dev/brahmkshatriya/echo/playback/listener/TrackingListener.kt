@@ -147,10 +147,10 @@ class TrackingListener(
                 }
                 trackMedia { _, details ->
                 details?.track?.let { track ->
-                    listenTogetherManager?.updateNowPlaying(track, player.currentPosition, isPlaying)
+                    listenTogetherManager?.updateNowPlaying(track, curr.extensionId, player.currentPosition, isPlaying)
                 }
                 details?.track?.let { track ->
-                    listenTogetherManager?.updateNowPlaying(track, player.currentPosition, isPlaying)
+                    listenTogetherManager?.updateNowPlaying(track, curr.extensionId, player.currentPosition, isPlaying)
                 }
                     onPlayingStateChanged(details, isPlaying)
                 }
