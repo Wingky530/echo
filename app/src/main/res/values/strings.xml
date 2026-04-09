@@ -449,4 +449,15 @@
     <string name="exported_to">Exported to %1$s</string>
     <string name="import_settings">Import Settings</string>
     <string name="import_settings_summary">Import settings from a file</string>
+    <string name="listen_together">Listen Together</string>
+    <string name="listen_together_create">Buat Sesi</string>
+    <string name="listen_together_join">Gabung Sesi</string>
+    <string name="listen_together_code_hint">Masukkan kode 6 digit</string>
+    <string name="listen_together_copy">Salin Kode</string>
+    <string name="listen_together_copied">Kode disalin!</string>
+    <string name="listen_together_leave">Tinggalkan Sesi</string>
+    <string name="listen_together_participants">%d pendengar</string>
+    <string name="listen_together_connecting">Menghubungkan2026</string>
+    <string name="listen_together_error">Gagal terhubung</string>
+    <string name="listen_together_you_host">Kamu adalah Host</string>
 </resources>

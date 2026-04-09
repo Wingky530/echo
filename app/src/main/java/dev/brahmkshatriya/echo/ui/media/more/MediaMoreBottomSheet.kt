@@ -36,6 +36,7 @@ import dev.brahmkshatriya.echo.ui.player.sleep.SleepTimerBottomSheet
 import dev.brahmkshatriya.echo.ui.playlist.delete.DeletePlaylistBottomSheet
 import dev.brahmkshatriya.echo.ui.playlist.edit.EditPlaylistBottomSheet
 import dev.brahmkshatriya.echo.ui.playlist.edit.EditPlaylistFragment
+import dev.brahmkshatriya.echo.ui.listentogether.ListenTogetherBottomSheet
 import dev.brahmkshatriya.echo.ui.playlist.save.SaveToPlaylistBottomSheet
 import dev.brahmkshatriya.echo.utils.ContextUtils.observe
 import dev.brahmkshatriya.echo.utils.Serializer.getSerialized
@@ -153,6 +154,14 @@ class MediaMoreBottomSheet : BottomSheetDialogFragment(R.layout.dialog_media_mor
         },
         button("quality_selection", R.string.quality_selection, R.drawable.ic_high_quality) {
             QualitySelectionBottomSheet().show(parentFragmentManager, null)
+        },
+        button("listen_together", R.string.listen_together, R.drawable.ic_listen_together) {
+            dismiss()
+            ListenTogetherBottomSheet.show(
+                parentFragmentManager,
+                extensionId = extensionId,
+                trackId = (item as? Track)?.id
+            )
         }
     ) else listOf()
 
