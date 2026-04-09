@@ -18,6 +18,7 @@ import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
 import dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.Companion.EXTENSION_ID
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import dev.brahmkshatriya.echo.utils.ContextUtils.observe
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
 import kotlin.math.abs
@@ -26,17 +27,13 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
     companion object {
         const val TAG = "ListenTogetherBottomSheet"
-
-        fun newInstance(extensionId: String, trackId: String?) =
-            ListenTogetherBottomSheet().apply {
-                arguments = Bundle().apply {
-                    putString("extensionId", extensionId)
-                    putString("trackId", trackId)
-                }
+        fun newInstance(extensionId: String, trackId: String?) = ListenTogetherBottomSheet().apply {
+            arguments = Bundle().apply {
+                putString("extensionId", extensionId)
+                putString("trackId", trackId)
             }
-
-        fun show(fm: FragmentManager, extensionId: String, trackId: String?) =
-            newInstance(extensionId, trackId).show(fm, TAG)
+        }
+        fun show(fm: FragmentManager, extensionId: String, trackId: String?) = newInstance(extensionId, trackId).show(fm, TAG)
     }
 
     private var _binding: BottomSheetListenTogetherBinding? = null
@@ -49,9 +46,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     private var lastBroadcastIsPlaying: Boolean? = null
     private var lastListenerTrackId: String? = null
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = BottomSheetListenTogetherBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -59,7 +54,21 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        observe(vm.state) { renderState(it) }
+        observe(vm.state) { state -> 
+            renderState(state) 
+            
+            // ✅ FIX 1: Host otomatis nyetor lagu pas baru banget bikin room
+            if (state is ListenTogetherState.Active && state.isHost && lastBroadcastTrackId == null) {
+                val current = playerVm.playerState.current.value ?: return@observe
+                val track = current.track ?: return@observe
+                val extId = track.extras[EXTENSION_ID] ?: arguments?.getString("extensionId") ?: ""
+                val positionMs = playerVm.browser.value?.currentPosition ?: 0L
+                
+                vm.broadcastSync(track.id, extId, positionMs, current.isPlaying)
+                lastBroadcastTrackId = track.id
+                lastBroadcastIsPlaying = current.isPlaying
+            }
+        }
 
         // =============================================
         // HOST: Broadcast saat track berubah
@@ -68,18 +77,11 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             val s = vm.state.value as? ListenTogetherState.Active ?: return@observe
             if (!s.isHost) return@observe
             val track = current?.track ?: return@observe
-            val extId = track.extras[EXTENSION_ID]
-                ?: arguments?.getString("extensionId")
-                ?: return@observe
-
+            // ✅ FIX 2: Jangan return kalau null, jadikan string kosong
+            val extId = track.extras[EXTENSION_ID] ?: arguments?.getString("extensionId") ?: ""
             val positionMs = playerVm.browser.value?.currentPosition ?: 0L
 
-            vm.broadcastSync(
-                trackId = track.id,
-                extensionId = extId,
-                positionMs = positionMs,
-                isPlaying = current.isPlaying
-            )
+            vm.broadcastSync(track.id, extId, positionMs, current.isPlaying)
             lastBroadcastTrackId = track.id
             lastBroadcastIsPlaying = current.isPlaying
         }
@@ -92,18 +94,11 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             if (!s.isHost) return@observe
             if (lastBroadcastIsPlaying == isPlaying) return@observe
             val current = playerVm.playerState.current.value ?: return@observe
-            val track = current.track
-            val extId = track.extras[EXTENSION_ID]
-                ?: arguments?.getString("extensionId")
-                ?: return@observe
+            val track = current.track ?: return@observe
+            val extId = track.extras[EXTENSION_ID] ?: arguments?.getString("extensionId") ?: ""
             val positionMs = playerVm.browser.value?.currentPosition ?: 0L
 
-            vm.broadcastSync(
-                trackId = track.id,
-                extensionId = extId,
-                positionMs = positionMs,
-                isPlaying = isPlaying
-            )
+            vm.broadcastSync(track.id, extId, positionMs, isPlaying)
             lastBroadcastIsPlaying = isPlaying
         }
 
@@ -114,36 +109,26 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             vm.syncEvent.collect { event ->
                 val s = vm.state.value as? ListenTogetherState.Active ?: return@collect
                 if (s.isHost) return@collect
-
-                val extId = event.extensionId
-                    ?: arguments?.getString("extensionId")
-                    ?: return@collect
+                val extId = event.extensionId ?: arguments?.getString("extensionId") ?: ""
 
                 // 1. Ganti lagu jika berbeda
                 if (lastListenerTrackId != event.trackId) {
                     lastListenerTrackId = event.trackId
-                    val track = Track(
-                        id = event.trackId,
-                        title = "Listen Together",
-                        extras = mapOf(EXTENSION_ID to extId)
-                    )
+                    val track = Track(id = event.trackId, title = "Listen Together", extras = mapOf(EXTENSION_ID to extId))
                     playerVm.play(extId, track, false)
-                    // ✅ FIX 1: Hapus return@collect biar fungsi di bawah tetep jalan
+                    
+                    // ✅ FIX 3: Kasih jeda 500ms biar ExoPlayer siapin lagu sblm di seek.
+                    delay(500) 
                 }
 
-                // ✅ FIX 2: Kalkulasi Kompensasi Latency Biar Gak Delay
+                // 2. Kalkulasi Kompensasi Latency
                 val networkLatency = System.currentTimeMillis() - event.timestamp
                 var expectedPosition = event.positionMs
-                
-                // Kalau lagu lagi jalan, tambahin latency jaringan ke posisi
-                if (event.isPlaying) {
-                    expectedPosition += networkLatency
-                }
+                if (event.isPlaying) { expectedPosition += networkLatency }
 
-                // ✅ FIX 3: Sync posisi — toleransi 2.5 detik biar player gak kaget
+                // 3. Sync posisi — toleransi 2.5 detik
                 val localPos = playerVm.browser.value?.currentPosition ?: 0L
-                val drift = abs(localPos - expectedPosition)
-                if (drift > 2500) {
+                if (abs(localPos - expectedPosition) > 2500) {
                     playerVm.seekTo(expectedPosition)
                 }
 
@@ -155,31 +140,20 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             }
         }
 
-        binding.btnCreate.setOnClickListener {
-            vm.createSession(
-                arguments?.getString("trackId"),
-                arguments?.getString("extensionId")
-            )
-        }
-
+        binding.btnCreate.setOnClickListener { vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId")) }
         binding.btnJoin.setOnClickListener {
             val code = binding.etCode.text?.toString()?.trim()
             if (!code.isNullOrBlank() && code.length >= 6) {
                 lastListenerTrackId = null
                 vm.joinSession(code)
-            } else {
-                binding.etCode.error = getString(R.string.listen_together_code_hint)
-            }
+            } else { binding.etCode.error = getString(R.string.listen_together_code_hint) }
         }
-
         binding.btnCopy.setOnClickListener {
             val s = vm.state.value as? ListenTogetherState.Active ?: return@setOnClickListener
-            val clipboard =
-                requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("code", s.sessionCode))
             Toast.makeText(context, R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
         }
-
         binding.btnLeave.setOnClickListener {
             vm.leaveSession()
             lastBroadcastTrackId = null
@@ -189,32 +163,16 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun renderState(state: ListenTogetherState) {
-        binding.panelSetup.isVisible =
-            state is ListenTogetherState.Idle || state is ListenTogetherState.Error
+        binding.panelSetup.isVisible = state is ListenTogetherState.Idle || state is ListenTogetherState.Error
         binding.progressConnecting.isVisible = state is ListenTogetherState.Connecting
         binding.panelActive.isVisible = state is ListenTogetherState.Active
-
         if (state is ListenTogetherState.Active) {
             binding.tvSessionCode.text = state.sessionCode
-            binding.tvRole.text = if (state.isHost)
-                getString(R.string.listen_together_you_host)
-            else
-                getString(R.string.listen_together_listening_with)
-            binding.tvParticipants.text = resources.getQuantityString(
-                R.plurals.listen_together_participants,
-                state.participants.size,
-                state.participants.size
-            )
+            binding.tvRole.text = if (state.isHost) getString(R.string.listen_together_you_host) else getString(R.string.listen_together_listening_with)
+            binding.tvParticipants.text = resources.getQuantityString(R.plurals.listen_together_participants, state.participants.size, state.participants.size)
             binding.btnCopy.isVisible = state.isHost
         }
-
-        if (state is ListenTogetherState.Error) {
-            Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
-        }
+        if (state is ListenTogetherState.Error) { Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show() }
     }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+    override fun onDestroyView() { super.onDestroyView(); _binding = null }
 }

@@ -33,8 +33,21 @@ class ListenTogetherFirebaseClient {
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val msg = snapshot.getValue(WsMessage::class.java) ?: return
-                if (msg.senderId != clientId) {
+                // Parse manual biar 100% aman dari R8 / Obfuscation
+                val type = snapshot.child("type").getValue(String::class.java) ?: ""
+                if (type != "SYNC") return
+                
+                val sender = snapshot.child("senderId").getValue(String::class.java) ?: ""
+                if (sender != clientId) {
+                    val msg = WsMessage(
+                        type = type,
+                        trackId = snapshot.child("trackId").getValue(String::class.java),
+                        extensionId = snapshot.child("extensionId").getValue(String::class.java),
+                        positionMs = snapshot.child("positionMs").getValue(Long::class.java) ?: 0L,
+                        isPlaying = snapshot.child("isPlaying").getValue(Boolean::class.java) ?: false,
+                        senderId = sender,
+                        timestamp = snapshot.child("timestamp").getValue(Long::class.java) ?: 0L
+                    )
                     trySend(msg)
                 }
             }
