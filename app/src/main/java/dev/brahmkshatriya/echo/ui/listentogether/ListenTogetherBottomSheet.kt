@@ -62,6 +62,10 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
         observe(vm.state) { renderState(it) }
 
+        vm.playerState = playerVm.playerState
+        vm.browserProvider = { playerVm.browser.value }
+        vm.isPlayingProvider = { playerVm.isPlaying.value }
+
         // =============================================
         // HOST: Periodic broadcast setiap 2 detik
         // Ini yang memastikan pause, seek, ganti lagu

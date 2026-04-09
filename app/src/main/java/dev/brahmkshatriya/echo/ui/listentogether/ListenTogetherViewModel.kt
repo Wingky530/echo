@@ -40,6 +40,34 @@ data class SyncEvent(
 
 class ListenTogetherViewModel : ViewModel() {
 
+    var playerState: dev.brahmkshatriya.echo.playback.PlayerState? = null
+    var browserProvider: (() -> androidx.media3.session.MediaController?)? = null
+    var isPlayingProvider: (() -> Boolean)? = null
+
+    private fun startHostBroadcast(code: String) {
+        viewModelScope.launch {
+            while (true) {
+                delay(2000)
+                val s = _state.value as? ListenTogetherState.Active ?: break
+                if (!s.isHost) break
+                val current = playerState?.current?.value ?: continue
+                val track = current.mediaItem.track
+                val extId = current.mediaItem.extensionId ?: continue
+                val positionMs = browserProvider?.invoke()?.currentPosition ?: 0L
+                val isPlaying = isPlayingProvider?.invoke() ?: false
+                android.util.Log.d("LT_HOST", "Broadcasting: track=\${track.id} ext=\${extId} pos=\${positionMs}")
+                broadcastSync(
+                    trackId = track.id,
+                    extensionId = extId,
+                    positionMs = positionMs,
+                    isPlaying = isPlaying,
+                    trackTitle = track.title,
+                    trackArtist = track.artists?.firstOrNull()?.name
+                )
+            }
+        }
+    }
+
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
 
@@ -70,6 +98,7 @@ class ListenTogetherViewModel : ViewModel() {
             timestamp = joinedAt
         ))
         startListening(code, isHost = true)
+        startHostBroadcast(code)
         observeParticipants(code)
     }
 
