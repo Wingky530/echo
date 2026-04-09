@@ -45,14 +45,23 @@ class ListenTogetherViewModel : ViewModel() {
     private val firebase = ListenTogetherFirebaseClient()
     private var listenJob: Job? = null
 
-    fun generateCode(): String = Random.nextInt(100000, 999999).toString()
+    private fun generateCode(): String = Random.nextInt(100000, 999999).toString()
+
+    fun createSession(trackId: String?, extensionId: String?) {
+        val code = generateCode()
+        _state.value = ListenTogetherState.Active(
+            sessionCode = code,
+            isHost = true,
+            participants = listOf(Participant(firebase.clientId, "You", isHost = true))
+        )
+        startListening(code, isHost = true)
+    }
 
     fun startListening(code: String, isHost: Boolean) {
         listenJob?.cancel()
         listenJob = viewModelScope.launch {
             firebase.connect(code).collect { msg ->
                 if (msg.type == "SYNC" && msg.trackId != null) {
-                    // Masukkan pesan dari Firebase ke dalam SharedFlow
                     _syncEvent.emit(
                         SyncEvent(
                             trackId = msg.trackId,
