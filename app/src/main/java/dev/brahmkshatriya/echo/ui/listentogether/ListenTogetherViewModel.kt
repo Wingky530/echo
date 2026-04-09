@@ -2,7 +2,7 @@ package dev.brahmkshatriya.echo.ui.listentogether
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dev.brahmkshatriya.echo.playback.PlaybackConnection
+import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,15 +11,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
-data class Participant(
-    val id: String,
-    val name: String,
-    val isHost: Boolean = false
-)
+data class Participant(val id: String, val name: String, val isHost: Boolean = false)
 
 sealed class ListenTogetherState {
     object Idle : ListenTogetherState()
-    object Connecting : ListenTogetherState()
     data class Active(
         val sessionCode: String,
         val isHost: Boolean,
@@ -36,7 +31,7 @@ data class SyncEvent(
 )
 
 class ListenTogetherViewModel(
-    private val playbackConnection: PlaybackConnection
+    private val playerViewModel: PlayerViewModel
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
@@ -52,7 +47,8 @@ class ListenTogetherViewModel(
 
     fun createSession(trackId: String?, extensionId: String?) {
         val code = generateCode()
-        _state.value = ListenTogetherState.Active(code, true, listOf(Participant(firebase.clientId, "You", true)))
+        _state.value = ListenTogetherState.Active(code, true,
+            listOf(Participant(firebase.clientId, "You", true)))
         startListening(code, true)
     }
 
@@ -62,17 +58,23 @@ class ListenTogetherViewModel(
             firebase.connect(code).collect { msg ->
                 if (msg.type == "SYNC" && msg.trackId != null) {
                     if (!isHost) {
-                        val currentId = playbackConnection.currentMetadata.value?.id
-                        if (currentId != msg.trackId && msg.extensionId != null) {
-                            playbackConnection.playTrack(msg.trackId, msg.extensionId)
+                        val browser = playerViewModel.browser.value
+                        if (browser != null) {
+                            val currentId = playerViewModel.playerState.current.value
+                                ?.mediaItem?.mediaId
+                            if (currentId != msg.trackId) {
+                                val idx = playerViewModel.queue.indexOfFirst {
+                                    it.mediaId == msg.trackId
+                                }
+                                if (idx >= 0) playerViewModel.play(idx)
+                            }
+                            browser.seekTo(msg.positionMs)
+                            if (msg.isPlaying) browser.play() else browser.pause()
                         }
-                        val pos = playbackConnection.playbackState.value?.position ?: 0L
-                        if (Math.abs(pos - msg.positionMs) > 3000) {
-                            playbackConnection.seekTo(msg.positionMs)
-                        }
-                        if (msg.isPlaying) playbackConnection.play() else playbackConnection.pause()
                     }
-                    _syncEvent.emit(SyncEvent(msg.trackId, msg.extensionId, msg.positionMs, msg.isPlaying))
+                    _syncEvent.emit(SyncEvent(
+                        msg.trackId, msg.extensionId, msg.positionMs, msg.isPlaying
+                    ))
                 }
             }
         }
