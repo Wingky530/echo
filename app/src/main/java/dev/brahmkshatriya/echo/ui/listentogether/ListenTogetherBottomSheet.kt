@@ -16,6 +16,7 @@ import dev.brahmkshatriya.echo.R
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
 import dev.brahmkshatriya.echo.common.models.Track
 import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
+import dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.Companion.EXTENSION_ID
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import dev.brahmkshatriya.echo.utils.ContextUtils.observe
 import kotlinx.coroutines.launch
@@ -48,6 +49,9 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     private val extensionId by lazy { arguments?.getString("extensionId") ?: "" }
     private val trackId by lazy { arguments?.getString("trackId") }
 
+    // Cegah broadcast loop
+    private var isSyncing = false
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
@@ -58,25 +62,46 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Render state
         observe(vm.state) { renderState(it) }
 
-        // ✅ Observe sync events dari host → apply ke player
+        // CLIENT: terima sync dari host
         viewLifecycleOwner.lifecycleScope.launch {
             vm.syncEvent.collect { event ->
+                isSyncing = true
                 applySyncToPlayer(event)
+                isSyncing = false
             }
         }
 
-        // ✅ Observe player state → broadcast jika host
-        observe(playerVm.playerState.current) { mediaItem ->
+        // HOST: broadcast saat track berubah
+        observe(playerVm.playerState.current) { current ->
+            if (isSyncing) return@observe
             val s = vm.state.value as? ListenTogetherState.Active ?: return@observe
             if (!s.isHost) return@observe
-            val track = mediaItem?.track ?: return@observe
-            val extId = mediaItem.extensionId ?: extensionId
-            val pos = playerVm.playerState.position.value ?: 0L
-            val isPlaying = playerVm.playerState.isPlaying.value ?: false
-            vm.broadcastSync(track.id, extId, pos, isPlaying)
+            val track = current?.track ?: return@observe
+            val extId = track.extras[EXTENSION_ID] ?: extensionId
+            vm.broadcastSync(
+                trackId = track.id,
+                extensionId = extId,
+                positionMs = 0L,
+                isPlaying = current.isPlaying
+            )
+        }
+
+        // HOST: broadcast saat play/pause berubah
+        observe(playerVm.isPlaying) { isPlaying ->
+            if (isSyncing) return@observe
+            val s = vm.state.value as? ListenTogetherState.Active ?: return@observe
+            if (!s.isHost) return@observe
+            val current = playerVm.playerState.current.value ?: return@observe
+            val track = current.track
+            val extId = track.extras[EXTENSION_ID] ?: extensionId
+            vm.broadcastSync(
+                trackId = track.id,
+                extensionId = extId,
+                positionMs = 0L,
+                isPlaying = isPlaying
+            )
         }
 
         binding.btnCreate.setOnClickListener {
@@ -94,7 +119,8 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
         binding.btnCopy.setOnClickListener {
             val s = vm.state.value as? ListenTogetherState.Active ?: return@setOnClickListener
-            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clipboard =
+                requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("Session Code", s.sessionCode))
             Toast.makeText(context, R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
         }
@@ -105,33 +131,41 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun applySyncToPlayer(event: SyncEvent) {
-        val currentTrack = playerVm.playerState.current.value?.track
-        val currentExtId = playerVm.playerState.current.value?.extensionId
+        val current = playerVm.playerState.current.value
+        val currentTrackId = current?.track?.id
+        val currentExtId = current?.track?.extras?.get(EXTENSION_ID)
 
-        if (currentTrack?.id != event.trackId || currentExtId != event.extensionId) {
-            // Track berbeda → load track baru dari extension
-            event.extensionId?.let { extId ->
-                val track = Track(id = event.trackId, title = "")
-                val item = EchoMediaItem.Tracks.TrackItem(track)
-                playerVm.play(extId, item, false)
+        // Load track baru jika berbeda
+        if (currentTrackId != event.trackId) {
+            val extId = event.extensionId ?: extensionId
+            val track = Track(
+                id = event.trackId,
+                title = "",
+                extras = mapOf(EXTENSION_ID to extId)
+            )
+            val item = EchoMediaItem.Tracks.TrackItem(track)
+            playerVm.play(extId, item, false)
+            // Setelah play, seek ke posisi host
+            if (event.positionMs > 0) {
+                playerVm.seekTo(event.positionMs)
             }
+            return
         }
 
-        // Sync posisi (hanya jika selisih > 2 detik untuk hindari loop)
-        val currentPos = playerVm.playerState.position.value ?: 0L
-        if (Math.abs(currentPos - event.positionMs) > 2000) {
+        // Track sama → hanya sync posisi & play state
+        if (event.positionMs > 0) {
             playerVm.seekTo(event.positionMs)
         }
 
-        // Sync play/pause
-        val currentlyPlaying = playerVm.playerState.isPlaying.value ?: false
+        val currentlyPlaying = current?.isPlaying ?: false
         if (currentlyPlaying != event.isPlaying) {
             playerVm.setPlaying(event.isPlaying)
         }
     }
 
     private fun renderState(state: ListenTogetherState) {
-        binding.panelSetup.isVisible = state is ListenTogetherState.Idle || state is ListenTogetherState.Error
+        binding.panelSetup.isVisible =
+            state is ListenTogetherState.Idle || state is ListenTogetherState.Error
         binding.progressConnecting.isVisible = state is ListenTogetherState.Connecting
         binding.panelActive.isVisible = state is ListenTogetherState.Active
 

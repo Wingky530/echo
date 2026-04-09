@@ -1,5 +1,6 @@
 package dev.brahmkshatriya.echo.ui.listentogether
 
+import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -28,25 +29,26 @@ class ListenTogetherFirebaseClient {
         "https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app"
     )
 
-    // Hanya emit pesan BARU setelah join (filter pesan lama)
+    // ✅ Pakai ChildEventListener → hanya trigger untuk pesan BARU
+    // Tidak trigger ulang untuk pesan lama seperti ValueEventListener
     fun connect(code: String, joinedAt: Long): Flow<WsMessage> = callbackFlow {
         val ref = db.getReference("sessions/$code/messages")
 
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val last = snapshot.children.lastOrNull() ?: return
-                val msg = last.getValue(WsMessage::class.java) ?: return
-                // Ignore pesan lama & pesan dari diri sendiri
+        val listener = object : ChildEventListener {
+            override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+                val msg = snapshot.getValue(WsMessage::class.java) ?: return
+                // Filter pesan lama dan pesan dari diri sendiri
                 if (msg.timestamp > joinedAt && msg.senderId != clientId) {
                     trySend(msg)
                 }
             }
-            override fun onCancelled(error: DatabaseError) {
-                close(error.toException())
-            }
+            override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {}
+            override fun onChildRemoved(snapshot: DataSnapshot) {}
+            override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
 
-        ref.addValueEventListener(listener)
+        ref.addChildEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
     }
 
