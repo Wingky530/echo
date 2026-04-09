@@ -37,7 +37,7 @@ class ListenTogetherManager(context: Context) {
             val msg = WsMessage(
                 type = "SYNC",
                 trackId = track.id,
-                extensionId = track.extensionId,
+                extensionId = track.extension,
                 positionMs = position,
                 isPlaying = isPlaying,
                 senderId = firebaseClient.clientId,
