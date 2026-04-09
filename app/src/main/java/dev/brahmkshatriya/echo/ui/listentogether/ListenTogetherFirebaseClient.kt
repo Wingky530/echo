@@ -1,6 +1,5 @@
 package dev.brahmkshatriya.echo.ui.listentogether
 
-import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -29,32 +28,30 @@ class ListenTogetherFirebaseClient {
         "https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app"
     )
 
-    // ✅ Pakai ChildEventListener → hanya trigger untuk pesan BARU
-    // Tidak trigger ulang untuk pesan lama seperti ValueEventListener
-    fun connect(code: String, joinedAt: Long): Flow<WsMessage> = callbackFlow {
-        val ref = db.getReference("sessions/$code/messages")
+    fun connect(code: String): Flow<WsMessage> = callbackFlow {
+        val ref = db.getReference("sessions/$code/state")
 
-        val listener = object : ChildEventListener {
-            override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
                 val msg = snapshot.getValue(WsMessage::class.java) ?: return
-                // Filter pesan lama dan pesan dari diri sendiri
-                if (msg.timestamp > joinedAt && msg.senderId != clientId) {
+                if (msg.senderId != clientId) {
                     trySend(msg)
                 }
             }
-            override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {}
-            override fun onChildRemoved(snapshot: DataSnapshot) {}
-            override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
-            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+            override fun onCancelled(error: DatabaseError) {
+                close(error.toException())
+            }
         }
-
-        ref.addChildEventListener(listener)
+        ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
     }
 
     fun send(code: String, msg: WsMessage) {
-        val ref = db.getReference("sessions/$code/messages")
-        ref.push().setValue(msg)
+        if (msg.type == "SYNC") {
+            db.getReference("sessions/$code/state").setValue(msg)
+        } else {
+            db.getReference("sessions/$code/messages").push().setValue(msg)
+        }
 
         if (msg.type == "JOIN" || msg.type == "SYNC") {
             db.getReference("sessions/$code/participants/${msg.senderId}")
