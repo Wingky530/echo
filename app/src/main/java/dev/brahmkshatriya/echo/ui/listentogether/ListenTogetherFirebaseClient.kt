@@ -1,6 +1,5 @@
 package dev.brahmkshatriya.echo.ui.listentogether
 
-import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -29,29 +28,25 @@ class ListenTogetherFirebaseClient {
         "https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app"
     )
 
-    private var sessionCode: String? = null
-
-    fun connect(code: String): Flow<WsMessage> = callbackFlow {
-        sessionCode = code
+    // Hanya emit pesan BARU setelah join (filter pesan lama)
+    fun connect(code: String, joinedAt: Long): Flow<WsMessage> = callbackFlow {
         val ref = db.getReference("sessions/$code/messages")
-        val joinTime = System.currentTimeMillis()
 
-        val listener = object : ChildEventListener {
-            override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
-                val msg = snapshot.getValue(WsMessage::class.java) ?: return
-                // Ignore pesan lama sebelum join
-                if (msg.timestamp < joinTime) return
-                if (msg.senderId != clientId) {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val last = snapshot.children.lastOrNull() ?: return
+                val msg = last.getValue(WsMessage::class.java) ?: return
+                // Ignore pesan lama & pesan dari diri sendiri
+                if (msg.timestamp > joinedAt && msg.senderId != clientId) {
                     trySend(msg)
                 }
             }
-            override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {}
-            override fun onChildRemoved(snapshot: DataSnapshot) {}
-            override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
-            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+            override fun onCancelled(error: DatabaseError) {
+                close(error.toException())
+            }
         }
 
-        ref.addChildEventListener(listener)
+        ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
     }
 
@@ -68,14 +63,9 @@ class ListenTogetherFirebaseClient {
                     "lastSeen" to System.currentTimeMillis()
                 ))
         }
-
         if (msg.type == "LEAVE") {
             db.getReference("sessions/$code/participants/${msg.senderId}").removeValue()
         }
-    }
-
-    fun cleanup(code: String) {
-        db.getReference("sessions/$code").removeValue()
     }
 
     fun observeParticipants(code: String): Flow<List<Participant>> = callbackFlow {

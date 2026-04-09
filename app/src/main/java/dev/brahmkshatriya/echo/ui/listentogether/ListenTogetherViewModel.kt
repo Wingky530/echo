@@ -2,21 +2,23 @@ package dev.brahmkshatriya.echo.ui.listentogether
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
-data class Participant(val id: String, val name: String, val isHost: Boolean = false)
+data class Participant(
+    val id: String,
+    val name: String,
+    val isHost: Boolean = false
+)
 
 sealed class ListenTogetherState {
     object Idle : ListenTogetherState()
+    object Connecting : ListenTogetherState()
     data class Active(
         val sessionCode: String,
         val isHost: Boolean,
@@ -32,85 +34,103 @@ data class SyncEvent(
     val isPlaying: Boolean
 )
 
-class ListenTogetherViewModel(
-    private val playerViewModel: PlayerViewModel
-) : ViewModel() {
+class ListenTogetherViewModel : ViewModel() {
 
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
 
+    // Client observe ini untuk sync player
     private val _syncEvent = MutableSharedFlow<SyncEvent>()
     val syncEvent: SharedFlow<SyncEvent> = _syncEvent
 
-    private val _participants = MutableStateFlow<List<Participant>>(emptyList())
-    val participants: StateFlow<List<Participant>> = _participants
-
     private val firebase = ListenTogetherFirebaseClient()
     private var listenJob: Job? = null
-    private var syncJob: Job? = null
     private var participantsJob: Job? = null
-
-    private fun generateCode(): String = Random.nextInt(100000, 999999).toString()
 
     fun createSession(trackId: String?, extensionId: String?) {
         val code = generateCode()
-        _state.value = ListenTogetherState.Active(code, true,
-            listOf(Participant(firebase.clientId, "You", true)))
-        startListening(code, true)
+        val joinedAt = System.currentTimeMillis()
+        _state.value = ListenTogetherState.Active(
+            sessionCode = code,
+            isHost = true,
+            participants = listOf(Participant(firebase.clientId, "You", isHost = true))
+        )
+        startListening(code, isHost = true, joinedAt = joinedAt)
         observeParticipants(code)
-        startSyncing(code)
     }
 
-    private fun startSyncing(code: String) {
-        syncJob?.cancel()
-        syncJob = viewModelScope.launch {
-            val browser = playerViewModel.browser.first { it != null }!!
-            while (true) {
-                val mediaItem = playerViewModel.playerState.current.value?.mediaItem
-                if (mediaItem != null) {
-                    firebase.send(code, WsMessage(
-                        type = "SYNC",
-                        trackId = mediaItem.mediaId,
-                        extensionId = mediaItem.mediaMetadata.extras?.getString("extensionId"),
-                        positionMs = browser.currentPosition,
-                        isPlaying = browser.isPlaying,
-                        senderId = firebase.clientId,
-                        senderName = "Host",
-                        timestamp = System.currentTimeMillis()
-                    ))
-                }
-                delay(1000)
+    fun joinSession(code: String) {
+        _state.value = ListenTogetherState.Connecting
+        val cleanCode = code.uppercase().trim()
+        val joinedAt = System.currentTimeMillis()
+
+        viewModelScope.launch {
+            try {
+                firebase.send(cleanCode, WsMessage(
+                    type = "JOIN",
+                    senderId = firebase.clientId,
+                    senderName = "User",
+                    timestamp = joinedAt
+                ))
+                _state.value = ListenTogetherState.Active(
+                    sessionCode = cleanCode,
+                    isHost = false
+                )
+                startListening(cleanCode, isHost = false, joinedAt = joinedAt)
+                observeParticipants(cleanCode)
+            } catch (e: Exception) {
+                _state.value = ListenTogetherState.Error(e.message ?: "Gagal bergabung")
             }
         }
     }
 
-    fun startListening(code: String, isHost: Boolean) {
+    // Dipanggil dari PlayerViewModel saat host ganti track / seek / play/pause
+    fun broadcastSync(
+        trackId: String,
+        extensionId: String?,
+        positionMs: Long,
+        isPlaying: Boolean
+    ) {
+        val s = _state.value as? ListenTogetherState.Active ?: return
+        if (!s.isHost) return
+        firebase.send(s.sessionCode, WsMessage(
+            type = "SYNC",
+            trackId = trackId,
+            extensionId = extensionId,
+            positionMs = positionMs,
+            isPlaying = isPlaying,
+            senderId = firebase.clientId,
+            timestamp = System.currentTimeMillis()
+        ))
+    }
+
+    fun leaveSession() {
+        val s = _state.value as? ListenTogetherState.Active ?: return
+        firebase.send(s.sessionCode, WsMessage(
+            type = "LEAVE",
+            senderId = firebase.clientId,
+            timestamp = System.currentTimeMillis()
+        ))
+        listenJob?.cancel()
+        participantsJob?.cancel()
+        _state.value = ListenTogetherState.Idle
+    }
+
+    private fun startListening(code: String, isHost: Boolean, joinedAt: Long) {
         listenJob?.cancel()
         listenJob = viewModelScope.launch {
-            firebase.connect(code).collect { msg ->
-                if (msg.type == "SYNC" && msg.trackId != null) {
-                    if (!isHost) {
-                        val browser = playerViewModel.browser.first { it != null }!!
-                        val currentId = playerViewModel.playerState.current.value
-                            ?.mediaItem?.mediaId
-                        if (currentId != msg.trackId) {
-                            val idx = playerViewModel.queue.indexOfFirst {
-                                it.mediaId == msg.trackId
-                            }
-                            if (idx >= 0) playerViewModel.play(idx)
-                        }
-                        val pos = browser.currentPosition
-                        if (Math.abs(pos - msg.positionMs) > 3000) {
-                            browser.seekTo(msg.positionMs)
-                        }
-                        val currentlyPlaying = browser.isPlaying
-                        if (currentlyPlaying != msg.isPlaying) {
-                            if (msg.isPlaying) browser.play() else browser.pause()
+            firebase.connect(code, joinedAt).collect { msg ->
+                when (msg.type) {
+                    "SYNC" -> {
+                        if (!isHost) {
+                            _syncEvent.emit(SyncEvent(
+                                trackId = msg.trackId ?: return@collect,
+                                extensionId = msg.extensionId,
+                                positionMs = msg.positionMs,
+                                isPlaying = msg.isPlaying
+                            ))
                         }
                     }
-                    _syncEvent.emit(SyncEvent(
-                        msg.trackId, msg.extensionId, msg.positionMs, msg.isPlaying
-                    ))
                 }
             }
         }
@@ -119,27 +139,20 @@ class ListenTogetherViewModel(
     private fun observeParticipants(code: String) {
         participantsJob?.cancel()
         participantsJob = viewModelScope.launch {
-            firebase.observeParticipants(code).collect { list ->
-                _participants.value = list
-                val current = _state.value
-                if (current is ListenTogetherState.Active) {
-                    _state.value = current.copy(participants = list)
-                }
+            firebase.observeParticipants(code).collect { participants ->
+                val s = _state.value as? ListenTogetherState.Active ?: return@collect
+                _state.value = s.copy(participants = participants)
             }
         }
     }
 
-    fun joinSession(code: String) {
-        _state.value = ListenTogetherState.Active(code, false)
-        startListening(code, false)
-        observeParticipants(code)
+    private fun generateCode(): String {
+        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return (1..6).map { chars[Random.nextInt(chars.length)] }.joinToString("")
     }
 
-    fun leaveSession() {
-        listenJob?.cancel()
-        syncJob?.cancel()
-        participantsJob?.cancel()
-        _participants.value = emptyList()
-        _state.value = ListenTogetherState.Idle
+    override fun onCleared() {
+        super.onCleared()
+        if (_state.value is ListenTogetherState.Active) leaveSession()
     }
 }
