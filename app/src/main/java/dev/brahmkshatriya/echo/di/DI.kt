@@ -18,6 +18,7 @@ import dev.brahmkshatriya.echo.ui.feed.FeedViewModel
 import dev.brahmkshatriya.echo.ui.main.search.SearchViewModel
 import dev.brahmkshatriya.echo.ui.media.MediaViewModel
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
+import dev.brahmkshatriya.echo.ui.listentogether.ListenTogetherViewModel
 import dev.brahmkshatriya.echo.ui.player.more.info.TrackInfoViewModel
 import dev.brahmkshatriya.echo.ui.player.more.lyrics.LyricsViewModel
 import dev.brahmkshatriya.echo.ui.playlist.create.CreatePlaylistViewModel
@@ -61,6 +62,7 @@ object DI {
         viewModelOf(::UiViewModel)
 
         viewModelOf(::PlayerViewModel)
+        viewModelOf(::ListenTogetherViewModel)
         viewModelOf(::LyricsViewModel)
         viewModelOf(::TrackInfoViewModel)
 
