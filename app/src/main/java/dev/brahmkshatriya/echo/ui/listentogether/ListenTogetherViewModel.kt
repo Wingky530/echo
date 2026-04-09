@@ -3,6 +3,7 @@ package dev.brahmkshatriya.echo.ui.listentogether
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -40,7 +41,12 @@ class ListenTogetherViewModel : ViewModel() {
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
 
-    private val _syncEvent = MutableSharedFlow<SyncEvent>()
+    // ✅ FIX: Kasih memori (replay=1) biar event gak ilang pas transisi UI
+    private val _syncEvent = MutableSharedFlow<SyncEvent>(
+        replay = 1,
+        extraBufferCapacity = 5,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     val syncEvent: SharedFlow<SyncEvent> = _syncEvent
 
     private val firebase = ListenTogetherFirebaseClient()
@@ -82,6 +88,7 @@ class ListenTogetherViewModel : ViewModel() {
                     sessionCode = cleanCode,
                     isHost = false
                 )
+                fetchAndApplyCurrentState(cleanCode)
                 startListening(cleanCode, isHost = false)
                 observeParticipants(cleanCode)
             } catch (e: Exception) {
@@ -90,12 +97,7 @@ class ListenTogetherViewModel : ViewModel() {
         }
     }
 
-    fun broadcastSync(
-        trackId: String,
-        extensionId: String?,
-        positionMs: Long,
-        isPlaying: Boolean
-    ) {
+    fun broadcastSync(trackId: String, extensionId: String?, positionMs: Long, isPlaying: Boolean) {
         val s = _state.value as? ListenTogetherState.Active ?: return
         if (!s.isHost) return
         firebase.send(s.sessionCode, WsMessage(
@@ -111,11 +113,7 @@ class ListenTogetherViewModel : ViewModel() {
 
     fun leaveSession() {
         val s = _state.value as? ListenTogetherState.Active ?: return
-        firebase.send(s.sessionCode, WsMessage(
-            type = "LEAVE",
-            senderId = firebase.clientId,
-            timestamp = System.currentTimeMillis()
-        ))
+        firebase.send(s.sessionCode, WsMessage(type = "LEAVE", senderId = firebase.clientId))
         listenJob?.cancel()
         participantsJob?.cancel()
         _state.value = ListenTogetherState.Idle
@@ -125,18 +123,14 @@ class ListenTogetherViewModel : ViewModel() {
         listenJob?.cancel()
         listenJob = viewModelScope.launch {
             firebase.connect(code).collect { msg ->
-                when (msg.type) {
-                    "SYNC" -> {
-                        if (!isHost) {
-                            _syncEvent.emit(SyncEvent(
-                                trackId = msg.trackId ?: return@collect,
-                                extensionId = msg.extensionId,
-                                positionMs = msg.positionMs,
-                                isPlaying = msg.isPlaying,
-                                timestamp = msg.timestamp 
-                            ))
-                        }
-                    }
+                if (msg.type == "SYNC" && !isHost) {
+                    _syncEvent.emit(SyncEvent(
+                        trackId = msg.trackId ?: return@collect,
+                        extensionId = msg.extensionId,
+                        positionMs = msg.positionMs,
+                        isPlaying = msg.isPlaying,
+                        timestamp = msg.timestamp 
+                    ))
                 }
             }
         }
@@ -148,6 +142,24 @@ class ListenTogetherViewModel : ViewModel() {
             firebase.observeParticipants(code).collect { participants ->
                 val s = _state.value as? ListenTogetherState.Active ?: return@collect
                 _state.value = s.copy(participants = participants)
+            }
+        }
+    }
+
+    private fun fetchAndApplyCurrentState(code: String) {
+        viewModelScope.launch {
+            firebase.getCurrentState(code) { msg ->
+                if (msg != null) {
+                    viewModelScope.launch {
+                        _syncEvent.emit(SyncEvent(
+                            trackId = msg.trackId ?: return@launch,
+                            extensionId = msg.extensionId,
+                            positionMs = msg.positionMs,
+                            isPlaying = msg.isPlaying,
+                            timestamp = msg.timestamp
+                        ))
+                    }
+                }
             }
         }
     }

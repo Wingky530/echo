@@ -33,23 +33,22 @@ class ListenTogetherFirebaseClient {
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                // ✅ PARSING AMAN ANTI-CRASH
-                val type = snapshot.child("type").value?.toString() ?: ""
-                if (type != "SYNC") return
-                
+                if (!snapshot.exists()) return
+
                 val sender = snapshot.child("senderId").value?.toString() ?: ""
-                if (sender != clientId) {
-                    val msg = WsMessage(
-                        type = type,
-                        trackId = snapshot.child("trackId").value?.toString(),
-                        extensionId = snapshot.child("extensionId").value?.toString(),
-                        positionMs = snapshot.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L,
-                        isPlaying = snapshot.child("isPlaying").value?.toString()?.toBoolean() ?: false,
-                        senderId = sender,
-                        timestamp = snapshot.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L
-                    )
-                    trySend(msg)
-                }
+                if (sender == clientId) return
+
+                val trackId = snapshot.child("trackId").value?.toString() ?: return
+                val msg = WsMessage(
+                    type = "SYNC",
+                    trackId = trackId,
+                    extensionId = snapshot.child("extensionId").value?.toString(),
+                    positionMs = snapshot.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L,
+                    isPlaying = snapshot.child("isPlaying").value?.toString()?.toBoolean() ?: false,
+                    senderId = sender,
+                    timestamp = snapshot.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L
+                )
+                trySend(msg)
             }
             override fun onCancelled(error: DatabaseError) {
                 close(error.toException())
@@ -61,7 +60,16 @@ class ListenTogetherFirebaseClient {
 
     fun send(code: String, msg: WsMessage) {
         if (msg.type == "SYNC") {
-            db.getReference("sessions/$code/state").setValue(msg)
+            // Simpan sebagai state (overwrite, bukan push)
+            val stateMap = mapOf(
+                "trackId" to msg.trackId,
+                "extensionId" to msg.extensionId,
+                "positionMs" to msg.positionMs,
+                "isPlaying" to msg.isPlaying,
+                "senderId" to msg.senderId,
+                "timestamp" to msg.timestamp
+            )
+            db.getReference("sessions/$code/state").setValue(stateMap)
         } else {
             db.getReference("sessions/$code/messages").push().setValue(msg)
         }
@@ -96,5 +104,27 @@ class ListenTogetherFirebaseClient {
         }
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
+    }
+
+    // Ambil state saat ini (untuk listener yang baru join)
+    fun getCurrentState(code: String, onResult: (WsMessage?) -> Unit) {
+        db.getReference("sessions/$code/state").get().addOnSuccessListener { snapshot ->
+            if (!snapshot.exists()) { onResult(null); return@addOnSuccessListener }
+            val trackId = snapshot.child("trackId").value?.toString()
+            if (trackId == null) { onResult(null); return@addOnSuccessListener }
+            val lastUpdatedAt = snapshot.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L
+            val isPlaying = snapshot.child("isPlaying").value?.toString()?.toBoolean() ?: false
+            val positionMs = snapshot.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L
+            // Hitung drift supaya posisi akurat
+            val drift = if (isPlaying) System.currentTimeMillis() - lastUpdatedAt else 0L
+            onResult(WsMessage(
+                type = "SYNC",
+                trackId = trackId,
+                extensionId = snapshot.child("extensionId").value?.toString(),
+                positionMs = positionMs + drift,
+                isPlaying = isPlaying,
+                senderId = snapshot.child("senderId").value?.toString() ?: ""
+            ))
+        }.addOnFailureListener { onResult(null) }
     }
 }
