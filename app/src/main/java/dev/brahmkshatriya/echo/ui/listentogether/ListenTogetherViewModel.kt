@@ -79,7 +79,7 @@ class ListenTogetherViewModel(
                         timestamp = System.currentTimeMillis()
                     ))
                 }
-                delay(3000)
+                delay(1000)
             }
         }
     }
@@ -100,8 +100,13 @@ class ListenTogetherViewModel(
                             if (idx >= 0) playerViewModel.play(idx)
                         }
                         val pos = browser.currentPosition
-                        if (Math.abs(pos - msg.positionMs) > 3000) browser.seekTo(msg.positionMs)
-                        if (msg.isPlaying) browser.play() else browser.pause()
+                        if (Math.abs(pos - msg.positionMs) > 3000) {
+                            browser.seekTo(msg.positionMs)
+                        }
+                        val currentlyPlaying = browser.isPlaying
+                        if (currentlyPlaying != msg.isPlaying) {
+                            if (msg.isPlaying) browser.play() else browser.pause()
+                        }
                     }
                     _syncEvent.emit(SyncEvent(
                         msg.trackId, msg.extensionId, msg.positionMs, msg.isPlaying
