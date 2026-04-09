@@ -2,6 +2,7 @@ package dev.brahmkshatriya.echo.ui.listentogether
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.brahmkshatriya.echo.playback.PlaybackConnection
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +35,9 @@ data class SyncEvent(
     val isPlaying: Boolean
 )
 
-class ListenTogetherViewModel : ViewModel() {
+class ListenTogetherViewModel(
+    private val playbackConnection: PlaybackConnection
+) : ViewModel() {
 
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
@@ -49,12 +52,8 @@ class ListenTogetherViewModel : ViewModel() {
 
     fun createSession(trackId: String?, extensionId: String?) {
         val code = generateCode()
-        _state.value = ListenTogetherState.Active(
-            sessionCode = code,
-            isHost = true,
-            participants = listOf(Participant(firebase.clientId, "You", isHost = true))
-        )
-        startListening(code, isHost = true)
+        _state.value = ListenTogetherState.Active(code, true, listOf(Participant(firebase.clientId, "You", true)))
+        startListening(code, true)
     }
 
     fun startListening(code: String, isHost: Boolean) {
@@ -62,14 +61,18 @@ class ListenTogetherViewModel : ViewModel() {
         listenJob = viewModelScope.launch {
             firebase.connect(code).collect { msg ->
                 if (msg.type == "SYNC" && msg.trackId != null) {
-                    _syncEvent.emit(
-                        SyncEvent(
-                            trackId = msg.trackId,
-                            extensionId = msg.extensionId,
-                            positionMs = msg.positionMs,
-                            isPlaying = msg.isPlaying
-                        )
-                    )
+                    if (!isHost) {
+                        val currentId = playbackConnection.currentMetadata.value?.id
+                        if (currentId != msg.trackId && msg.extensionId != null) {
+                            playbackConnection.playTrack(msg.trackId, msg.extensionId)
+                        }
+                        val pos = playbackConnection.playbackState.value?.position ?: 0L
+                        if (Math.abs(pos - msg.positionMs) > 3000) {
+                            playbackConnection.seekTo(msg.positionMs)
+                        }
+                        if (msg.isPlaying) playbackConnection.play() else playbackConnection.pause()
+                    }
+                    _syncEvent.emit(SyncEvent(msg.trackId, msg.extensionId, msg.positionMs, msg.isPlaying))
                 }
             }
         }
