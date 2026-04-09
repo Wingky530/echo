@@ -18,7 +18,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.brahmkshatriya.echo"
+        applicationId = "dev.brahmkshatriya.echo.together"
         minSdk = 24
         targetSdk = 36
         versionCode = gitCount
@@ -35,7 +35,7 @@ android {
         }
         create("nightly") {
             initWith(getByName("release"))
-            applicationIdSuffix = ".nightly"
+            applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Echo Nightly")
         }
         create("stable") {
@@ -85,6 +85,7 @@ dependencies {
 
     if (!hasGoogleServices) return@dependencies
     implementation(libs.bundles.firebase)
+    implementation(libs.okhttp)
 }
 
 if (hasGoogleServices) {

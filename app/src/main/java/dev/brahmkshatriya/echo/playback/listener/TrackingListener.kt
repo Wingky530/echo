@@ -37,7 +37,8 @@ class TrackingListener(
     private val scope: CoroutineScope,
     extensions: ExtensionLoader,
     private val currentFlow: MutableStateFlow<PlayerState.Current?>,
-    private val throwableFlow: MutableSharedFlow<Throwable>
+    private val throwableFlow: MutableSharedFlow<Throwable>,
+    val listenTogetherManager: dev.brahmkshatriya.echo.listentogether.ListenTogetherManager? = null
 ) : Player.Listener {
 
     private val musicList = extensions.music
@@ -75,6 +76,9 @@ class TrackingListener(
     private fun onTrackChanged(mediaItem: MediaItem?) {
         previousId = current?.extensionId
         current = mediaItem
+        mediaItem?.track?.let { track ->
+            listenTogetherManager?.updateNowPlaying(track, player.currentPosition, player.isPlaying)
+        }
         scope.launch {
             mutex.withLock {
                 timers.forEach { (_, timer) -> timer.pause() }
