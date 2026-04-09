@@ -55,6 +55,12 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             val code = binding.etCode.text?.toString()?.trim()
             if (!code.isNullOrBlank() && code.length >= 6) vm.joinSession(code)
         }
+        binding.btnCopy.setOnClickListener {
+            val s = vm.state.value as? ListenTogetherState.Active ?: return@setOnClickListener
+            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("code", s.sessionCode))
+            Toast.makeText(context, R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
+        }
         binding.btnLeave.setOnClickListener { 
             vm.leaveSession()
             lastTrackId = null
@@ -96,11 +102,16 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun renderState(state: ListenTogetherState) {
-        binding.panelSetup.isVisible = state is ListenTogetherState.Idle
+        binding.panelSetup.isVisible = state is ListenTogetherState.Idle || state is ListenTogetherState.Error
+        binding.progressConnecting.isVisible = state is ListenTogetherState.Connecting
         binding.panelActive.isVisible = state is ListenTogetherState.Active
         if (state is ListenTogetherState.Active) {
             binding.tvSessionCode.text = state.sessionCode
+            binding.tvRole.text = if (state.isHost) getString(R.string.listen_together_you_host) else getString(R.string.listen_together_listening_with)
+            binding.tvParticipants.text = resources.getQuantityString(R.plurals.listen_together_participants, state.participants.size, state.participants.size)
+            binding.btnCopy.isVisible = state.isHost
         }
+        if (state is ListenTogetherState.Error) Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroyView() { super.onDestroyView(); _binding = null }
