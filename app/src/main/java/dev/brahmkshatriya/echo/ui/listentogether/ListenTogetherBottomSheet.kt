@@ -7,13 +7,16 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.FragmentManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import dev.brahmkshatriya.echo.R
 import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
+import dev.brahmkshatriya.echo.ui.extensions.login.LoginUserListViewModel
 import dev.brahmkshatriya.echo.utils.ContextUtils.observe
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
 
@@ -21,13 +24,9 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
     companion object {
         const val TAG = "ListenTogetherBottomSheet"
-        fun newInstance(extensionId: String, trackId: String?) = ListenTogetherBottomSheet().apply {
-            arguments = Bundle().apply {
-                putString("extensionId", extensionId)
-                putString("trackId", trackId)
-            }
-        }
-        fun show(fm: FragmentManager, extensionId: String, trackId: String?) = newInstance(extensionId, trackId).show(fm, TAG)
+        fun show(fm: FragmentManager, extensionId: String, trackId: String?) = ListenTogetherBottomSheet().apply {
+            arguments = Bundle().apply { putString("extensionId", extensionId); putString("trackId", trackId) }
+        }.show(fm, TAG)
     }
 
     private var _binding: BottomSheetListenTogetherBinding? = null
@@ -35,6 +34,9 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
     private val vm: ListenTogetherViewModel by activityViewModel()
     private val playerVm: PlayerViewModel by activityViewModel()
+    private val loginVm: LoginUserListViewModel by activityViewModel()
+    
+    private val participantAdapter = ParticipantAdapter()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = BottomSheetListenTogetherBinding.inflate(inflater, container, false)
@@ -44,7 +46,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // ✅ Kasih semua remot kontrol player ke ViewModel
         vm.playerState = playerVm.playerState
         vm.browserProvider = { playerVm.browser.value }
         vm.isPlayingProvider = { playerVm.isPlaying.value }
@@ -52,16 +53,18 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         vm.seekAction = { pos -> playerVm.seekTo(pos) }
         vm.setPlayingAction = { isPlaying -> playerVm.setPlaying(isPlaying) }
 
+        binding.rvParticipants.adapter = participantAdapter
+
         observe(vm.state) { renderState(it) }
 
         binding.btnCreate.setOnClickListener {
-            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"))
+            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername())
         }
 
         binding.btnJoin.setOnClickListener {
             val code = binding.etCode.text?.toString()?.trim()
             if (!code.isNullOrBlank() && code.length >= 6) {
-                vm.joinSession(code)
+                vm.joinSession(code, getActiveUsername())
             } else {
                 binding.etCode.error = getString(R.string.listen_together_code_hint)
             }
@@ -74,9 +77,13 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             Toast.makeText(context, R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
         }
 
-        binding.btnLeave.setOnClickListener {
-            vm.leaveSession()
-        }
+        binding.btnLeave.setOnClickListener { vm.leaveSession() }
+    }
+    
+    private fun getActiveUsername(): String {
+        val extName = loginVm.currentUser.value?.name
+        val localName = ListenTogetherSettingsFragment.getUsername(requireContext())
+        return extName ?: localName.takeIf { it.isNotBlank() } ?: "Guest"
     }
 
     private fun renderState(state: ListenTogetherState) {
@@ -87,8 +94,13 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         if (state is ListenTogetherState.Active) {
             binding.tvSessionCode.text = state.sessionCode
             binding.tvRole.text = if (state.isHost) getString(R.string.listen_together_you_host) else getString(R.string.listen_together_listening_with)
-            binding.tvParticipants.text = resources.getQuantityString(R.plurals.listen_together_participants, state.participants.size, state.participants.size)
-            binding.btnCopy.isVisible = state.isHost
+            binding.panelPermissions.isVisible = state.isHost
+            
+            // Urutkan Host di atas, sisanya sesuai abjad
+            val sortedList = state.participants.sortedWith(compareBy({ !it.isHost }, { it.name }))
+            participantAdapter.updateData(sortedList)
+            
+            binding.tvParticipants.text = "Participants (${state.participants.size})"
         }
 
         if (state is ListenTogetherState.Error) { Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show() }
@@ -97,5 +109,35 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    // Adapter buat RecyclerView List Orang
+    inner class ParticipantAdapter : RecyclerView.Adapter<ParticipantAdapter.VH>() {
+        private var items = listOf<Participant>()
+        
+        fun updateData(newItems: List<Participant>) {
+            items = newItems
+            notifyDataSetChanged()
+        }
+        
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_listen_together_participant, parent, false)
+            return VH(view)
+        }
+        
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val item = items[position]
+            holder.tvName.text = item.name
+            holder.tvInitial.text = item.name.firstOrNull()?.uppercase() ?: "?"
+            holder.badgeHost.isVisible = item.isHost
+        }
+        
+        override fun getItemCount() = items.size
+        
+        inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+            val tvName: TextView = view.findViewById(R.id.tvName)
+            val tvInitial: TextView = view.findViewById(R.id.tvAvatarInitial)
+            val badgeHost: View = view.findViewById(R.id.badgeHost)
+        }
     }
 }

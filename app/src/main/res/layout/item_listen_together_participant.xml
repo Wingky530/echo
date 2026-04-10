@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingVertical="8dp">
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/ivAvatar"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?colorPrimaryContainer"
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full" />
+
+    <TextView
+        android:id="@+id/tvAvatarInitial"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="-40dp"
+        android:gravity="center"
+        android:text="?"
+        android:textColor="?colorOnPrimaryContainer"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/badgeHost"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:cardBackgroundColor="?colorPrimary"
+        app:cardCornerRadius="8dp"
+        app:strokeWidth="0dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:text="HOST"
+            android:textAppearance="?attr/textAppearanceLabelSmall"
+            android:textColor="?colorOnPrimary"
+            android:textStyle="bold" />
+    </com.google.android.material.card.MaterialCardView>
+</LinearLayout>

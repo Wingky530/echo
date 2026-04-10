@@ -6,7 +6,6 @@
     android:orientation="vertical"
     android:padding="24dp">
 
-    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -27,7 +26,6 @@
             android:textAppearance="?attr/textAppearanceTitleMedium" />
     </LinearLayout>
 
-    <!-- Loading -->
     <ProgressBar
         android:id="@+id/progressConnecting"
         android:layout_width="wrap_content"
@@ -35,7 +33,6 @@
         android:layout_gravity="center_horizontal"
         android:visibility="gone" />
 
-    <!-- Setup panel (Idle) -->
     <LinearLayout
         android:id="@+id/panelSetup"
         android:layout_width="match_parent"
@@ -72,7 +69,6 @@
             style="@style/Widget.Material3.Button.OutlinedButton" />
     </LinearLayout>
 
-    <!-- Active panel -->
     <LinearLayout
         android:id="@+id/panelActive"
         android:layout_width="match_parent"
@@ -93,14 +89,64 @@
             android:layout_height="wrap_content"
             android:textAppearance="?attr/textAppearanceHeadlineMedium"
             android:letterSpacing="0.15"
-            android:layout_marginBottom="4dp" />
+            android:layout_marginBottom="8dp" />
 
         <TextView
             android:id="@+id/tvParticipants"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="?attr/textAppearanceBodySmall"
-            android:layout_marginBottom="16dp" />
+            android:text="Participants"
+            android:textAppearance="?attr/textAppearanceLabelLarge"
+            android:textColor="?attr/colorPrimary"
+            android:layout_marginBottom="4dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvParticipants"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:nestedScrollingEnabled="false"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+        <LinearLayout
+            android:id="@+id/panelPermissions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/rounded_rectangle_cover_profile"
+            android:backgroundTint="?colorSurfaceContainer"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Listener Permissions"
+                android:textAppearance="?attr/textAppearanceLabelMedium"
+                android:textColor="?attr/colorPrimary"
+                android:layout_marginBottom="8dp"/>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switchPlayPause"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Allow Play / Pause"
+                android:checked="false" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switchSeek"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Allow Seek Duration"
+                android:checked="false" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switchSkip"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Allow Change Track"
+                android:checked="false" />
+        </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCopy"
@@ -117,5 +163,4 @@
             android:text="@string/listen_together_leave"
             style="@style/Widget.Material3.Button.TonalButton" />
     </LinearLayout>
-
 </LinearLayout>

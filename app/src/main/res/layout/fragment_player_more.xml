@@ -20,11 +20,7 @@
             android:alpha="0">
 
             <com.google.android.material.button.MaterialButton style="@style/PlayerMoreBackgroundButton" />
-
             <com.google.android.material.button.MaterialButton style="@style/PlayerMoreBackgroundButton" />
-
-            <com.google.android.material.button.MaterialButton style="@style/PlayerMoreBackgroundButton" />
-
             <com.google.android.material.button.MaterialButton style="@style/PlayerMoreBackgroundButton" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
@@ -48,12 +44,6 @@
                 android:id="@+id/info"
                 style="@style/PlayerMoreSelected"
                 android:text="@string/info" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/listen_together"
-                style="@style/PlayerMoreSelected"
-                android:text="Together"
-                app:backgroundTint="@color/button_player_more" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
     </FrameLayout>
 

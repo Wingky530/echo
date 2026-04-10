@@ -7,12 +7,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import dev.brahmkshatriya.echo.playback.MediaItemUtils.track
-import dev.brahmkshatriya.echo.playback.MediaItemUtils.extensionId
 import kotlin.random.Random
 import kotlin.math.abs
-
-data class Participant(val id: String, val name: String, val isHost: Boolean = false)
 
 sealed class ListenTogetherState {
     object Idle : ListenTogetherState()
@@ -40,24 +36,25 @@ class ListenTogetherViewModel : ViewModel() {
 
     private var lastListenerTrackId: String? = null
 
-    fun createSession(trackId: String?, extensionId: String?) {
+    fun createSession(trackId: String?, extensionId: String?, userName: String) {
         val code = generateCode()
         val joinedAt = System.currentTimeMillis()
-        _state.value = ListenTogetherState.Active(sessionCode = code, isHost = true, participants = listOf(Participant(firebase.clientId, "Host", isHost = true)))
-        firebase.send(code, WsMessage(type = "JOIN", senderId = firebase.clientId, senderName = "Host", timestamp = joinedAt))
+        _state.value = ListenTogetherState.Active(sessionCode = code, isHost = true, participants = listOf(Participant(firebase.clientId, userName, isHost = true)))
+        
+        firebase.send(code, WsMessage(type = "JOIN", senderId = firebase.clientId, senderName = userName, timestamp = joinedAt), isHost = true)
         startListening(code, isHost = true)
         startHostBroadcast(code)
         observeParticipants(code)
     }
 
-    fun joinSession(code: String) {
+    fun joinSession(code: String, userName: String) {
         _state.value = ListenTogetherState.Connecting
         val cleanCode = code.uppercase().trim()
         val joinedAt = System.currentTimeMillis()
 
         viewModelScope.launch {
             try {
-                firebase.send(cleanCode, WsMessage(type = "JOIN", senderId = firebase.clientId, senderName = "User", timestamp = joinedAt))
+                firebase.send(cleanCode, WsMessage(type = "JOIN", senderId = firebase.clientId, senderName = userName, timestamp = joinedAt), isHost = false)
                 _state.value = ListenTogetherState.Active(sessionCode = cleanCode, isHost = false)
                 fetchAndApplyCurrentState(cleanCode)
                 startListening(cleanCode, isHost = false)
@@ -81,15 +78,15 @@ class ListenTogetherViewModel : ViewModel() {
                 val positionMs = browserProvider?.invoke()?.currentPosition ?: 0L
                 val isPlaying = isPlayingProvider?.invoke() ?: false
                 
-                broadcastSync(track.id, extId, positionMs, isPlaying, track.title, track.artists?.firstOrNull()?.name)
+                broadcastSync(track.id, extId, positionMs, isPlaying, track.title)
             }
         }
     }
 
-    fun broadcastSync(trackId: String, extensionId: String?, positionMs: Long, isPlaying: Boolean, trackTitle: String? = null, trackArtist: String? = null) {
+    fun broadcastSync(trackId: String, extensionId: String?, positionMs: Long, isPlaying: Boolean, trackTitle: String? = null) {
         val s = _state.value as? ListenTogetherState.Active ?: return
         if (!s.isHost) return
-        firebase.send(s.sessionCode, WsMessage(type = "SYNC", trackId = trackId, extensionId = extensionId, positionMs = positionMs, isPlaying = isPlaying, trackTitle = trackTitle, trackArtist = trackArtist, senderId = firebase.clientId, timestamp = System.currentTimeMillis()))
+        firebase.send(s.sessionCode, WsMessage(type = "SYNC", trackId = trackId, extensionId = extensionId, positionMs = positionMs, isPlaying = isPlaying, trackTitle = trackTitle, senderId = firebase.clientId, timestamp = System.currentTimeMillis()), isHost = true)
     }
 
     fun leaveSession() {
@@ -137,7 +134,6 @@ class ListenTogetherViewModel : ViewModel() {
     private fun fetchAndApplyCurrentState(code: String) {
         viewModelScope.launch {
             firebase.getCurrentState(code) { msg ->
-                // ✅ FIX: Ganti logic biar gak pake return yang haram di dalem lambda
                 if (msg != null && msg.trackId != null && msg.extensionId != null) {
                     val extId = msg.extensionId
                     if (lastListenerTrackId != msg.trackId) {
