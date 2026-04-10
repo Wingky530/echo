@@ -102,8 +102,8 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             
             val oldList = previousParticipants
             if (oldList != null) {
-                state.participants.filter { newP -> oldList.none { it.id == newP.id } }.forEach { p -> Toast.makeText(context, "${p.name} joined 👋", Toast.LENGTH_SHORT).show() }
-                oldList.filter { oldP -> state.participants.none { it.id == oldP.id } }.forEach { p -> Toast.makeText(context, "${p.name} left 🏃", Toast.LENGTH_SHORT).show() }
+                state.participants.filter { newP -> oldList.none { it.id == newP.id } }.forEach { p -> Toast.makeText(context, "${p.name} joined", Toast.LENGTH_SHORT).show() }
+                oldList.filter { oldP -> state.participants.none { it.id == oldP.id } }.forEach { p -> Toast.makeText(context, "${p.name} left", Toast.LENGTH_SHORT).show() }
             }
             previousParticipants = state.participants
             
