@@ -1,7 +1,6 @@
 {
   "project_info": {
     "project_number": "102776913233",
-    "firebase_url": "https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app",
     "project_id": "echo-listen-together",
     "storage_bucket": "echo-listen-together.firebasestorage.app"
   },
@@ -13,7 +12,6 @@
           "package_name": "dev.brahmkshatriya.echo"
         }
       },
-      "oauth_client": [],
       "api_key": [
         {
           "current_key": "AIzaSyCW5qZyZd7s2v6GCa-gXwe17c7MfslxASM"
