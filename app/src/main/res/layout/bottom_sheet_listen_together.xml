@@ -30,7 +30,7 @@
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
             <com.google.android.material.button.MaterialButton android:id="@+id/btnCopy" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/listen_together_copy" android:layout_marginEnd="8dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-            <com.google.android.material.button.MaterialButton android:id="@+id/btnSettings" android:layout_width="wrap_content" android:layout_height="wrap_content" app:icon="@drawable/ic_settings_outline" style="@style/Widget.Material3.Button.IconButton.FilledTonal" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/btnSettings" android:layout_width="wrap_content" android:layout_height="wrap_content" app:icon="@drawable/ic_settings_outline" style="@style/Widget.Material3.IconButton.FilledTonal" />
         </LinearLayout>
         
         <com.google.android.material.button.MaterialButton android:id="@+id/btnLeave" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/listen_together_leave" style="@style/Widget.Material3.Button.TonalButton" />
