@@ -3,8 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:background="?navBackground">
+    android:layout_height="match_parent">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -81,21 +80,19 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content">
                         <com.google.android.material.button.MaterialButton android:id="@+id/downloads" style="@style/SideBarButton" android:layout_width="0dp" android:layout_weight="1" android:text="@string/downloads" app:backgroundTint="@android:color/transparent" app:icon="@drawable/ic_download_for_offline" />
                         <com.google.android.material.button.MaterialButton android:id="@+id/downloadSettings" style="@style/IconButtonTonal" app:backgroundTint="@android:color/transparent" app:icon="@drawable/ic_settings_outline" />
                     </LinearLayout>
-
                     <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceContainerHigh" android:layout_marginHorizontal="16dp"/>
 
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content">
                         <com.google.android.material.button.MaterialButton android:id="@+id/manageExtension" style="@style/SideBarButton" android:layout_width="0dp" android:layout_weight="1" android:text="@string/extensions" app:backgroundTint="@android:color/transparent" app:icon="@drawable/ic_extension" />
                         <com.google.android.material.button.MaterialButton android:id="@+id/addExtension" style="@style/IconButtonTertiary" app:icon="@drawable/ic_add_circle" />
                     </LinearLayout>
-
                     <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceContainerHigh" android:layout_marginHorizontal="16dp"/>
 
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content">
                         <com.google.android.material.button.MaterialButton android:id="@+id/listenTogether" style="@style/SideBarButton" android:layout_width="0dp" android:layout_weight="1" android:text="@string/listen_together_settings" app:backgroundTint="@android:color/transparent" app:icon="@drawable/ic_listen_together" />
                         <com.google.android.material.button.MaterialButton android:id="@+id/listenTogetherSettings" style="@style/IconButtonTonal" app:backgroundTint="@android:color/transparent" app:icon="@drawable/ic_settings_outline" />
                     </LinearLayout>
@@ -115,7 +112,7 @@
             </com.google.android.material.button.MaterialButtonGroup>
 
             <com.google.android.material.button.MaterialButtonGroup
-                android:layout_width="wrap_content" android:layout_height="match_parent" android:layout_gravity="center" android:layout_marginTop="12dp" android:gravity="center" android:orientation="horizontal">
+                android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_marginTop="12dp" android:orientation="horizontal">
                 <com.google.android.material.button.MaterialButton android:id="@+id/discord" style="@style/IconButtonTonalBig" app:icon="@drawable/ic_discord" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/github" style="@style/IconButtonTonalBig" app:icon="@drawable/ic_github" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/telegram" style="@style/IconButtonTonalBig" app:icon="@drawable/ic_telegram" />

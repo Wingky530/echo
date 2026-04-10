@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.brahmkshatriya.echo.R
+import dev.brahmkshatriya.echo.common.models.ImageHolder
 import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import dev.brahmkshatriya.echo.ui.extensions.login.LoginUserListViewModel
@@ -40,8 +41,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     
     private val participantAdapter = ParticipantAdapter()
     private var previousParticipants: List<Participant>? = null
-
-    // Status toggle permission
     private var permissions = booleanArrayOf(true, true, true)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -92,7 +91,11 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     }
     
     private fun getActiveUsername() = loginVm.currentUser.value?.name ?: ListenTogetherSettingsFragment.getUsername(requireContext()).takeIf { it.isNotBlank() } ?: "Guest"
-    private fun getActiveAvatar() = loginVm.currentUser.value?.cover?.url
+    
+    private fun getActiveAvatar(): String? {
+        val cover = loginVm.currentUser.value?.cover ?: return null
+        return if (cover is ImageHolder.Url) cover.url else null
+    }
 
     private fun renderState(state: ListenTogetherState) {
         binding.panelSetup.isVisible = state is ListenTogetherState.Idle || state is ListenTogetherState.Error
@@ -131,7 +134,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             holder.tvName.text = item.name
             holder.badgeHost.isVisible = item.isHost
             if (!item.avatarUrl.isNullOrEmpty()) {
-                holder.ivAvatar.loadBigIcon(item.avatarUrl?.let { dev.brahmkshatriya.echo.common.models.ImageHolder(it) }, R.drawable.ic_account_circle_32dp)
+                holder.ivAvatar.loadBigIcon(ImageHolder.Url(item.avatarUrl), R.drawable.ic_account_circle_32dp)
                 holder.tvInitial.isVisible = false
             } else {
                 holder.ivAvatar.setImageResource(0)
