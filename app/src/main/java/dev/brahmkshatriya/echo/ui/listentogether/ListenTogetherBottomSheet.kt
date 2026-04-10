@@ -92,7 +92,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     }
     
     private fun getActiveUsername() = loginVm.currentUser.value?.name ?: ListenTogetherSettingsFragment.getUsername(requireContext()).takeIf { it.isNotBlank() } ?: "Guest"
-    private fun getActiveAvatar() = loginVm.currentUser.value?.cover
+    private fun getActiveAvatar() = loginVm.currentUser.value?.cover?.toString()
 
     private fun renderState(state: ListenTogetherState) {
         binding.panelSetup.isVisible = state is ListenTogetherState.Idle || state is ListenTogetherState.Error
@@ -131,7 +131,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             holder.tvName.text = item.name
             holder.badgeHost.isVisible = item.isHost
             if (!item.avatarUrl.isNullOrEmpty()) {
-                holder.ivAvatar.loadBigIcon(item.avatarUrl, R.drawable.ic_account_circle_32dp)
+                holder.ivAvatar.loadBigIcon(dev.brahmkshatriya.echo.common.models.ImageHolder.from(item.avatarUrl), R.drawable.ic_account_circle_32dp)
                 holder.tvInitial.isVisible = false
             } else {
                 holder.ivAvatar.setImageResource(0)
