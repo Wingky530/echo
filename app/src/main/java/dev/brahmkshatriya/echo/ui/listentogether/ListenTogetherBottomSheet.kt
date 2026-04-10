@@ -15,11 +15,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.brahmkshatriya.echo.R
-import dev.brahmkshatriya.echo.common.models.ImageHolder
 import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import dev.brahmkshatriya.echo.ui.extensions.login.LoginUserListViewModel
-import dev.brahmkshatriya.echo.ui.main.HeaderAdapter.Companion.loadBigIcon
 import dev.brahmkshatriya.echo.utils.ContextUtils.observe
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
 
@@ -62,12 +60,12 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         observe(vm.state) { renderState(it) }
 
         binding.btnCreate.setOnClickListener {
-            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername(), getActiveAvatar())
+            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername())
         }
 
         binding.btnJoin.setOnClickListener {
             val code = binding.etCode.text?.toString()?.trim()
-            if (!code.isNullOrBlank() && code.length >= 6) vm.joinSession(code, getActiveUsername(), getActiveAvatar())
+            if (!code.isNullOrBlank() && code.length >= 6) vm.joinSession(code, getActiveUsername())
             else binding.etCode.error = getString(R.string.listen_together_code_hint)
         }
 
@@ -91,12 +89,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     }
     
     private fun getActiveUsername() = loginVm.currentUser.value?.name ?: ListenTogetherSettingsFragment.getUsername(requireContext()).takeIf { it.isNotBlank() } ?: "Guest"
-    
-    private fun getActiveAvatar(): String? {
-        val cover = loginVm.currentUser.value?.cover ?: return null
-        // Fix: Cast ke subclass yang benar untuk ambil URL
-        return (cover as? ImageHolder.Url)?.url
-    }
 
     private fun renderState(state: ListenTogetherState) {
         binding.panelSetup.isVisible = state is ListenTogetherState.Idle || state is ListenTogetherState.Error
@@ -134,15 +126,8 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             val item = items[position]
             holder.tvName.text = item.name
             holder.badgeHost.isVisible = item.isHost
-            if (!item.avatarUrl.isNullOrEmpty()) {
-                // Fix: Gunakan subclass ImageHolder.Url
-                holder.ivAvatar.loadBigIcon(ImageHolder.Url(item.avatarUrl), R.drawable.ic_account_circle_32dp)
-                holder.tvInitial.isVisible = false
-            } else {
-                holder.ivAvatar.setImageResource(0)
-                holder.tvInitial.text = item.name.firstOrNull()?.uppercase() ?: "?"
-                holder.tvInitial.isVisible = true
-            }
+            holder.tvInitial.text = item.name.firstOrNull()?.uppercase() ?: "?"
+            holder.ivAvatar.setImageResource(0)
         }
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val tvName: TextView = view.findViewById(R.id.tvName)
