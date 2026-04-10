@@ -107,8 +107,6 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/downloadSettings"
                             style="@style/IconButtonTonal"
-                            android:layout_width="wrap_content"
-                            app:backgroundTint="@android:color/transparent"
                             app:icon="@drawable/ic_settings_outline" />
                     </LinearLayout>
 
@@ -129,7 +127,6 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/addExtension"
                             style="@style/IconButtonTertiary"
-                            android:layout_width="wrap_content"
                             app:icon="@drawable/ic_add_circle" />
                     </LinearLayout>
 
@@ -150,8 +147,6 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/listenTogetherSettings"
                             style="@style/IconButtonTonal"
-                            android:layout_width="wrap_content"
-                            app:backgroundTint="@android:color/transparent"
                             app:icon="@drawable/ic_settings_outline" />
                     </LinearLayout>
                 </LinearLayout>
@@ -203,6 +198,7 @@
             android:layout_weight="1"
             android:text="@string/no_account"
             app:icon="@drawable/ic_keyboard_arrow_down"
-            app:iconGravity="end" />
+            app:iconGravity="end"
+            app:strokeWidth="0dp" />
     </LinearLayout>
 </FrameLayout>
