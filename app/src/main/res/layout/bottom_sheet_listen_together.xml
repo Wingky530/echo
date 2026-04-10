@@ -12,155 +12,32 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:layout_marginBottom="20dp">
-
-        <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@drawable/ic_listen_together"
-            android:layout_marginEnd="12dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/listen_together"
-            android:textAppearance="?attr/textAppearanceTitleMedium" />
+        <ImageView android:layout_width="28dp" android:layout_height="28dp" android:src="@drawable/ic_listen_together" android:layout_marginEnd="12dp" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/listen_together" android:textAppearance="?attr/textAppearanceTitleMedium" />
     </LinearLayout>
 
-    <ProgressBar
-        android:id="@+id/progressConnecting"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:visibility="gone" />
+    <ProgressBar android:id="@+id/progressConnecting" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:visibility="gone" />
 
-    <LinearLayout
-        android:id="@+id/panelSetup"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnCreate"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/listen_together_create"
-            android:layout_marginBottom="12dp" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/listen_together_code_hint"
-            android:layout_marginBottom="8dp"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etCode"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textCapCharacters"
-                android:maxLength="6" />
+    <LinearLayout android:id="@+id/panelSetup" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <com.google.android.material.button.MaterialButton android:id="@+id/btnCreate" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/listen_together_create" android:layout_marginBottom="12dp" />
+        <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/listen_together_code_hint" android:layout_marginBottom="8dp" style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/etCode" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textCapCharacters" android:maxLength="6" />
         </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnJoin"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/listen_together_join"
-            style="@style/Widget.Material3.Button.OutlinedButton" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/btnJoin" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/listen_together_join" style="@style/Widget.Material3.Button.OutlinedButton" />
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/panelActive"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:visibility="gone">
+    <LinearLayout android:id="@+id/panelActive" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+        <TextView android:id="@+id/tvRole" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodyMedium" android:layout_marginBottom="4dp" />
+        <TextView android:id="@+id/tvSessionCode" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceHeadlineMedium" android:letterSpacing="0.15" android:layout_marginBottom="8dp" />
+        
+        <TextView android:id="@+id/tvParticipants" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Participants" android:textAppearance="?attr/textAppearanceLabelLarge" android:textColor="?attr/colorPrimary" android:layout_marginBottom="4dp" />
+        <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvParticipants" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:nestedScrollingEnabled="false" app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
-        <TextView
-            android:id="@+id/tvRole"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:layout_marginBottom="4dp" />
-
-        <TextView
-            android:id="@+id/tvSessionCode"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?attr/textAppearanceHeadlineMedium"
-            android:letterSpacing="0.15"
-            android:layout_marginBottom="8dp" />
-
-        <TextView
-            android:id="@+id/tvParticipants"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Participants"
-            android:textAppearance="?attr/textAppearanceLabelLarge"
-            android:textColor="?attr/colorPrimary"
-            android:layout_marginBottom="4dp" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvParticipants"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:nestedScrollingEnabled="false"
-            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
-        <LinearLayout
-            android:id="@+id/panelPermissions"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginBottom="16dp"
-            android:background="@drawable/rounded_rectangle_cover_profile"
-            android:backgroundTint="?colorSurfaceContainer"
-            android:padding="12dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Listener Permissions"
-                android:textAppearance="?attr/textAppearanceLabelMedium"
-                android:textColor="?attr/colorPrimary"
-                android:layout_marginBottom="8dp"/>
-
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switchPlayPause"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Allow Play / Pause"
-                android:checked="false" />
-
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switchSeek"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Allow Seek Duration"
-                android:checked="false" />
-
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switchSkip"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Allow Change Track"
-                android:checked="false" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+            <com.google.android.material.button.MaterialButton android:id="@+id/btnCopy" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/listen_together_copy" android:layout_marginEnd="8dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/btnSettings" android:layout_width="wrap_content" android:layout_height="wrap_content" app:icon="@drawable/ic_settings_outline" style="@style/Widget.Material3.Button.IconButton.FilledTonal" android:visibility="gone" />
         </LinearLayout>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnCopy"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/listen_together_copy"
-            android:layout_marginBottom="8dp"
-            style="@style/Widget.Material3.Button.OutlinedButton" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnLeave"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/listen_together_leave"
-            style="@style/Widget.Material3.Button.TonalButton" />
+        
+        <com.google.android.material.button.MaterialButton android:id="@+id/btnLeave" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/listen_together_leave" style="@style/Widget.Material3.Button.TonalButton" />
     </LinearLayout>
 </LinearLayout>

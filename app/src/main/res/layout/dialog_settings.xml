@@ -165,12 +165,14 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal">
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/manageExtension"
                             style="@style/SideBarButton"
                             android:layout_width="0dp"
+                            android:layout_height="match_parent"
                             android:layout_weight="1"
                             android:text="@string/extensions"
                             app:backgroundTint="@android:color/transparent"
@@ -182,10 +184,10 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_weight="0"
-                            android:minHeight="64dp"
+                            android:layout_marginEnd="8dp"
+                            android:minHeight="48dp"
                             android:paddingStart="16dp"
                             android:paddingEnd="20dp"
-                            app:backgroundTint="@android:color/transparent"
                             app:icon="@drawable/ic_add_circle"
                             app:iconSize="24dp" />
                     </LinearLayout>

@@ -38,25 +38,25 @@ class ListenTogetherViewModel : ViewModel() {
 
     private var lastListenerTrackId: String? = null
 
-    fun createSession(trackId: String?, extensionId: String?, userName: String) {
+    fun createSession(trackId: String?, extensionId: String?, userName: String, avatarUrl: String? = null) {
         val code = generateCode()
         val joinedAt = System.currentTimeMillis()
-        _state.value = ListenTogetherState.Active(sessionCode = code, isHost = true, participants = listOf(Participant(firebase.clientId, userName, isHost = true)))
+        _state.value = ListenTogetherState.Active(sessionCode = code, isHost = true, participants = listOf(Participant(firebase.clientId, userName, avatarUrl, isHost = true)))
         
-        firebase.send(code, WsMessage(type = "JOIN", senderId = firebase.clientId, senderName = userName, timestamp = joinedAt), isHost = true)
+        firebase.send(code, WsMessage(type = "JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl, timestamp = joinedAt), isHost = true)
         startListening(code, isHost = true)
         startHostBroadcast(code)
         observeParticipants(code)
     }
 
-    fun joinSession(code: String, userName: String) {
+    fun joinSession(code: String, userName: String, avatarUrl: String? = null) {
         _state.value = ListenTogetherState.Connecting
         val cleanCode = code.uppercase().trim()
         val joinedAt = System.currentTimeMillis()
 
         viewModelScope.launch {
             try {
-                firebase.send(cleanCode, WsMessage(type = "JOIN", senderId = firebase.clientId, senderName = userName, timestamp = joinedAt), isHost = false)
+                firebase.send(cleanCode, WsMessage(type = "JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl, timestamp = joinedAt), isHost = false)
                 _state.value = ListenTogetherState.Active(sessionCode = cleanCode, isHost = false)
                 fetchAndApplyCurrentState(cleanCode)
                 startListening(cleanCode, isHost = false)

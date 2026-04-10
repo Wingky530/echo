@@ -13,10 +13,12 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.FragmentManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.brahmkshatriya.echo.R
 import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import dev.brahmkshatriya.echo.ui.extensions.login.LoginUserListViewModel
+import dev.brahmkshatriya.echo.ui.main.HeaderAdapter.Companion.loadBigIcon
 import dev.brahmkshatriya.echo.utils.ContextUtils.observe
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
 
@@ -37,6 +39,10 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     private val loginVm: LoginUserListViewModel by activityViewModel()
     
     private val participantAdapter = ParticipantAdapter()
+    private var previousParticipants: List<Participant>? = null
+
+    // Status toggle permission
+    private var permissions = booleanArrayOf(true, true, true)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = BottomSheetListenTogetherBinding.inflate(inflater, container, false)
@@ -54,37 +60,39 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         vm.setPlayingAction = { isPlaying -> playerVm.setPlaying(isPlaying) }
 
         binding.rvParticipants.adapter = participantAdapter
-
         observe(vm.state) { renderState(it) }
 
         binding.btnCreate.setOnClickListener {
-            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername())
+            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername(), getActiveAvatar())
         }
 
         binding.btnJoin.setOnClickListener {
             val code = binding.etCode.text?.toString()?.trim()
-            if (!code.isNullOrBlank() && code.length >= 6) {
-                vm.joinSession(code, getActiveUsername())
-            } else {
-                binding.etCode.error = getString(R.string.listen_together_code_hint)
-            }
+            if (!code.isNullOrBlank() && code.length >= 6) vm.joinSession(code, getActiveUsername(), getActiveAvatar())
+            else binding.etCode.error = getString(R.string.listen_together_code_hint)
         }
 
         binding.btnCopy.setOnClickListener {
             val s = vm.state.value as? ListenTogetherState.Active ?: return@setOnClickListener
-            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("code", s.sessionCode))
+            (requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("code", s.sessionCode))
             Toast.makeText(context, R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnSettings.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Listener Permissions")
+                .setMultiChoiceItems(arrayOf("Allow Play / Pause", "Allow Seek Duration", "Allow Change Track"), permissions) { _, which, isChecked ->
+                    permissions[which] = isChecked
+                }
+                .setPositiveButton("Save", null)
+                .show()
         }
 
         binding.btnLeave.setOnClickListener { vm.leaveSession() }
     }
     
-    private fun getActiveUsername(): String {
-        val extName = loginVm.currentUser.value?.name
-        val localName = ListenTogetherSettingsFragment.getUsername(requireContext())
-        return extName ?: localName.takeIf { it.isNotBlank() } ?: "Guest"
-    }
+    private fun getActiveUsername() = loginVm.currentUser.value?.name ?: ListenTogetherSettingsFragment.getUsername(requireContext()).takeIf { it.isNotBlank() } ?: "Guest"
+    private fun getActiveAvatar() = loginVm.currentUser.value?.cover
 
     private fun renderState(state: ListenTogetherState) {
         binding.panelSetup.isVisible = state is ListenTogetherState.Idle || state is ListenTogetherState.Error
@@ -94,48 +102,46 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         if (state is ListenTogetherState.Active) {
             binding.tvSessionCode.text = state.sessionCode
             binding.tvRole.text = if (state.isHost) getString(R.string.listen_together_you_host) else getString(R.string.listen_together_listening_with)
-            binding.panelPermissions.isVisible = state.isHost
+            binding.btnSettings.isVisible = state.isHost
             
-            // Urutkan Host di atas, sisanya sesuai abjad
-            val sortedList = state.participants.sortedWith(compareBy({ !it.isHost }, { it.name }))
-            participantAdapter.updateData(sortedList)
+            val oldList = previousParticipants
+            if (oldList != null) {
+                state.participants.filter { newP -> oldList.none { it.id == newP.id } }.forEach { p -> Toast.makeText(context, "${p.name} joined 👋", Toast.LENGTH_SHORT).show() }
+                oldList.filter { oldP -> state.participants.none { it.id == oldP.id } }.forEach { p -> Toast.makeText(context, "${p.name} left 🏃", Toast.LENGTH_SHORT).show() }
+            }
+            previousParticipants = state.participants
             
+            participantAdapter.updateData(state.participants.sortedWith(compareBy({ !it.isHost }, { it.name })))
             binding.tvParticipants.text = "Participants (${state.participants.size})"
-        }
+        } else previousParticipants = null
 
-        if (state is ListenTogetherState.Error) { Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show() }
+        if (state is ListenTogetherState.Error) Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+    override fun onDestroyView() { super.onDestroyView(); _binding = null }
 
-    // Adapter buat RecyclerView List Orang
     inner class ParticipantAdapter : RecyclerView.Adapter<ParticipantAdapter.VH>() {
         private var items = listOf<Participant>()
-        
-        fun updateData(newItems: List<Participant>) {
-            items = newItems
-            notifyDataSetChanged()
-        }
-        
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_listen_together_participant, parent, false)
-            return VH(view)
-        }
+        fun updateData(newItems: List<Participant>) { items = newItems; notifyDataSetChanged() }
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_listen_together_participant, parent, false))
+        override fun getItemCount() = items.size
         
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = items[position]
             holder.tvName.text = item.name
-            holder.tvInitial.text = item.name.firstOrNull()?.uppercase() ?: "?"
             holder.badgeHost.isVisible = item.isHost
+            if (!item.avatarUrl.isNullOrEmpty()) {
+                holder.ivAvatar.loadBigIcon(item.avatarUrl, R.drawable.ic_account_circle_32dp)
+                holder.tvInitial.isVisible = false
+            } else {
+                holder.ivAvatar.setImageResource(0)
+                holder.tvInitial.text = item.name.firstOrNull()?.uppercase() ?: "?"
+                holder.tvInitial.isVisible = true
+            }
         }
-        
-        override fun getItemCount() = items.size
-        
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val tvName: TextView = view.findViewById(R.id.tvName)
+            val ivAvatar: com.google.android.material.imageview.ShapeableImageView = view.findViewById(R.id.ivAvatar)
             val tvInitial: TextView = view.findViewById(R.id.tvAvatarInitial)
             val badgeHost: View = view.findViewById(R.id.badgeHost)
         }
