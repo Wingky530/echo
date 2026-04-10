@@ -94,7 +94,8 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     
     private fun getActiveAvatar(): String? {
         val cover = loginVm.currentUser.value?.cover ?: return null
-        return if (cover is ImageHolder.Url) cover.url else null
+        // Fix: Cast ke subclass yang benar untuk ambil URL
+        return (cover as? ImageHolder.Url)?.url
     }
 
     private fun renderState(state: ListenTogetherState) {
@@ -134,6 +135,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             holder.tvName.text = item.name
             holder.badgeHost.isVisible = item.isHost
             if (!item.avatarUrl.isNullOrEmpty()) {
+                // Fix: Gunakan subclass ImageHolder.Url
                 holder.ivAvatar.loadBigIcon(ImageHolder.Url(item.avatarUrl), R.drawable.ic_account_circle_32dp)
                 holder.tvInitial.isVisible = false
             } else {
