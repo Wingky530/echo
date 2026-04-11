@@ -66,7 +66,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             val s = vm.state.value as? ListenTogetherState.Active ?: return@setOnClickListener
             val clipboard = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("code", s.sessionCode))
-            Toast.makeText(context, R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
         }
 
         binding.btnLeave.setOnClickListener { vm.leaveSession() }
@@ -93,7 +93,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             binding.tvParticipants.text = "Participants (${state.participants.size})"
         }
 
-        if (state is ListenTogetherState.Error) Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+        if (state is ListenTogetherState.Error) Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
     }
 
     private fun showExtensionWarning(extId: String) {
