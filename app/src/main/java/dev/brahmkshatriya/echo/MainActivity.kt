@@ -116,6 +116,12 @@ open class MainActivity : AppCompatActivity() {
             Back::class.java else MainActivity::class.java
     }
 
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun setupDefaultExtensions() {
         android.widget.Toast.makeText(this, "DEBUG: Memulai Pasang YTM...", android.widget.Toast.LENGTH_LONG).show()
         val extDir = java.io.File(filesDir, "extensions")
