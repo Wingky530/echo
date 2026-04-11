@@ -79,7 +79,9 @@ class ListenTogetherFirebaseClient {
                 "isHost" to isHost,
                 "lastSeen" to System.currentTimeMillis()
             )
-            msg.senderName?.takeIf { it.isNotBlank() && it != "Guest" }?.let { updateData["name"] = it }
+            val nameToSet = msg.senderName?.takeIf { it.isNotBlank() && it != "Guest" } ?: "Guest-${msg.senderId.take(4)}"
+            updateData["name"] = nameToSet
+            updateData["name"] = nameToSet
             msg.senderAvatar?.takeIf { it.isNotBlank() }?.let { updateData["avatarUrl"] = it }
             db.getReference("sessions/$code/participants/${msg.senderId}").updateChildren(updateData)
         }
