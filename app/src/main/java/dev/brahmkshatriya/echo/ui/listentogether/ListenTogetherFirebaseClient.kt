@@ -73,15 +73,14 @@ class ListenTogetherFirebaseClient {
             db.getReference("sessions/$code/state").updateChildren(stateMap)
         }
         
-        if (msg.type == "JOIN" || isHost) {
-            db.getReference("sessions/$code/participants/${msg.senderId}")
-                .updateChildren(mapOf(
-                    "id" to msg.senderId,
-                    "name" to (msg.senderName ?: "Guest"),
-                    "avatarUrl" to msg.senderAvatar,
-                    "isHost" to isHost,
-                    "lastSeen" to System.currentTimeMillis()
-                ))
+            val updateData = mutableMapOf<String, Any>(
+                "id" to msg.senderId,
+                "isHost" to isHost,
+                "lastSeen" to System.currentTimeMillis()
+            )
+            msg.senderName?.takeIf { it.isNotBlank() && it != "Guest" }?.let { updateData["name"] = it }
+            msg.senderAvatar?.takeIf { it.isNotBlank() }?.let { updateData["avatarUrl"] = it }
+            db.getReference("sessions/$code/participants/${msg.senderId}").updateChildren(updateData)
         }
         
         if (msg.type == "LEAVE") {
