@@ -117,31 +117,33 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDefaultExtensions() {
-        val extDir = java.io.File(filesDir, "extensions")
-        if (!extDir.exists()) {
-            val created = extDir.mkdirs()
-            if (!created) {
-                android.widget.Toast.makeText(this, "GAGAL: Folder extensions gak bisa dibuat", android.widget.Toast.LENGTH_LONG).show()
-                return
-            }
-        }
-        
-        val ytmFile = java.io.File(extDir, "youtube.apk")
-        if (ytmFile.exists()) ytmFile.delete() // Hapus yang lama biar gak korup
-
         try {
+            val folder = java.io.File(filesDir, "extensions")
+            
+            // Jika ada file dengan nama 'extensions', hapus!
+            if (folder.exists() && !folder.isDirectory) {
+                folder.delete()
+            }
+            
+            // Buat folder baru jika belum ada
+            if (!folder.exists()) {
+                folder.mkdirs()
+            }
+            
+            val destination = java.io.File(folder, "youtube.apk")
+            
+            // Proses Copy dari Assets
             assets.open("extensions/youtube.eapk").use { input ->
-                ytmFile.outputStream().use { output ->
+                java.io.FileOutputStream(destination).use { output ->
                     input.copyTo(output)
                 }
             }
-            if (ytmFile.exists() && ytmFile.length() > 0) {
-                android.widget.Toast.makeText(this, "YTM BERHASIL! Size: ${ytmFile.length()} bytes", android.widget.Toast.LENGTH_LONG).show()
-            } else {
-                android.widget.Toast.makeText(this, "ERROR: File nol byte!", android.widget.Toast.LENGTH_LONG).show()
-            }
+            
+            android.widget.Toast.makeText(this, "SUKSES: ${destination.name} (${destination.length()} bytes)", android.widget.Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            android.widget.Toast.makeText(this, "DETEKSI ERROR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            // Tampilkan nama class error agar lebih jelas
+            val fullError = "${e.javaClass.simpleName}: ${e.message}"
+            android.widget.Toast.makeText(this, "LOG: $fullError", android.widget.Toast.LENGTH_LONG).show()
             e.printStackTrace()
         }
     }
