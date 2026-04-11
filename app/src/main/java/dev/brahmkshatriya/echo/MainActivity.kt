@@ -41,6 +41,7 @@ open class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)\n        installDefaultExtensions()
+        setupDefaultExtensions()
         setTheme(getAppTheme())
         DynamicColors.applyToActivityIfAvailable(
             this, applyUiChanges(this, uiViewModel)
@@ -116,18 +117,22 @@ open class MainActivity : AppCompatActivity() {
     }
 }
 
-    private fun installDefaultExtensions() {
-        val extDir = java.io.File(filesDir, "extensions")
-        if (!extDir.exists()) extDir.mkdirs()
-        val ytmFile = java.io.File(extDir, "youtube_music.apk")
-        if (!ytmFile.exists()) {
-            try {
-                assets.open("extensions/youtube.eapk").use { input ->
-                    ytmFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
+}
+
+// Fungsi tambahan untuk pre-install ekstensi
+fun android.app.Activity.setupDefaultExtensions() {
+    val extDir = java.io.File(filesDir, "extensions")
+    if (!extDir.exists()) extDir.mkdirs()
+    val ytmFile = java.io.File(extDir, "youtube_music.apk")
+    if (!ytmFile.exists()) {
+        try {
+            assets.open("extensions/youtube.eapk").use { input ->
+                ytmFile.outputStream().use { output ->
+                    input.copyTo(output)
                 }
-            } catch (e: Exception) { e.printStackTrace() }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }
