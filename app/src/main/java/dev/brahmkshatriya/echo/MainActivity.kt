@@ -43,6 +43,7 @@ open class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)\n        installDefaultExtensions()
         setupDefaultExtensions()
         setupDefaultExtensions()
+        setupDefaultExtensions()
         setTheme(getAppTheme())
         DynamicColors.applyToActivityIfAvailable(
             this, applyUiChanges(this, uiViewModel)
@@ -146,6 +147,23 @@ open class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    private fun setupDefaultExtensions() {
+        val extDir = java.io.File(filesDir, "extensions")
+        if (!extDir.exists()) extDir.mkdirs()
+        val ytmFile = java.io.File(extDir, "youtube_music.apk")
+        if (!ytmFile.exists()) {
+            try {
+                assets.open("extensions/youtube.eapk").use { input ->
+                    ytmFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 }
