@@ -1,5 +1,8 @@
 package dev.brahmkshatriya.echo
-import androidx.lifecycle.lifecycleScope\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.delay\n
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+
 import android.content.Context
 import android.graphics.Color.TRANSPARENT
 import android.os.Bundle
@@ -41,7 +44,8 @@ open class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setupDefaultExtensions()\n        setTheme(getAppTheme())
+        setupDefaultExtensions()
+        setTheme(getAppTheme())
         DynamicColors.applyToActivityIfAvailable(
             this, applyUiChanges(this, uiViewModel)
         )
@@ -128,8 +132,8 @@ open class MainActivity : AppCompatActivity() {
                         input.copyTo(output)
                     }
                 }
-                delay(1500) // Kasih waktu sistem buat nafas
-                android.widget.Toast.makeText(this@MainActivity, "V12: YTM READY!", android.widget.Toast.LENGTH_SHORT).show()
+                delay(2000)
+                android.widget.Toast.makeText(this@MainActivity, "V13: AUTO-INJECT BERHASIL!", android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
