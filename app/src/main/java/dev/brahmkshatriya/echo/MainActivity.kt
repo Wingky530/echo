@@ -119,7 +119,7 @@ open class MainActivity : AppCompatActivity() {
     private fun setupDefaultExtensions() {
         val extDir = java.io.File(filesDir, "extensions")
         if (!extDir.exists()) extDir.mkdirs()
-        val ytmFile = java.io.File(extDir, "youtube_music.apk")
+        val ytmFile = java.io.File(extDir, "youtube.apk")
         if (!ytmFile.exists()) {
             try {
                 assets.open("extensions/youtube.eapk").use { input ->
