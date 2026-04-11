@@ -41,6 +41,7 @@ open class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        installDefaultExtensions()
         setTheme(getAppTheme())
         DynamicColors.applyToActivityIfAvailable(
             this, applyUiChanges(this, uiViewModel)
@@ -113,5 +114,21 @@ open class MainActivity : AppCompatActivity() {
         const val BACK_ANIM = "back_anim"
         fun Context.getMainActivity() = if (getSettings().getBoolean(BACK_ANIM, false))
             Back::class.java else MainActivity::class.java
+    }
+}
+fun android.content.Context.installDefaultExtensions() {
+    val extDir = java.io.File(this.filesDir, "extensions")
+    if (!extDir.exists()) extDir.mkdirs()
+    val ytmFile = java.io.File(extDir, "youtube.eapk")
+    if (!ytmFile.exists()) {
+        try {
+            this.assets.open("extensions/youtube.eapk").use { input ->
+                ytmFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
