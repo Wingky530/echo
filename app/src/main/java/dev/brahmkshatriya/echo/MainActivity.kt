@@ -1,5 +1,5 @@
 package dev.brahmkshatriya.echo
-
+import androidx.lifecycle.lifecycleScope\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.delay\n
 import android.content.Context
 import android.graphics.Color.TRANSPARENT
 import android.os.Bundle
@@ -41,8 +41,7 @@ open class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setupDefaultExtensions()
-        setTheme(getAppTheme())
+        setupDefaultExtensions()\n        setTheme(getAppTheme())
         DynamicColors.applyToActivityIfAvailable(
             this, applyUiChanges(this, uiViewModel)
         )
@@ -117,29 +116,22 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDefaultExtensions() {
-        lifecycleScope.launchWhenCreated {
+        lifecycleScope.launch {
             try {
                 val folder = java.io.File(filesDir, "extensions")
-                // Bersihin sampah biar gak eror path lagi
                 if (folder.isFile) folder.delete()
                 if (!folder.exists()) folder.mkdirs()
                 
                 val dest = java.io.File(folder, "youtube.eapk")
-                
-                // Salin dari assets
                 assets.open("extensions/ytm_music.eapk").use { input ->
                     java.io.FileOutputStream(dest).use { output ->
                         input.copyTo(output)
                     }
                 }
-                
-                // TRICK ZERO CLICK: Pancing loader buat scan folder
-                // Kita pake delay dikit biar sistem siap
-                kotlinx.coroutines.delay(1000)
-                android.widget.Toast.makeText(this@MainActivity, "V11: YTM AUTO-LOADED!", android.widget.Toast.LENGTH_SHORT).show()
-                
+                delay(1500) // Kasih waktu sistem buat nafas
+                android.widget.Toast.makeText(this@MainActivity, "V12: YTM READY!", android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                android.widget.Toast.makeText(this@MainActivity, "V11 GAGAL: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                e.printStackTrace()
             }
         }
     }
