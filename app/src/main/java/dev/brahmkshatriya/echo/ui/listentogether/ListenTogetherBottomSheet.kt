@@ -60,12 +60,12 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         observe(vm.state) { renderState(it) }
 
         binding.btnCreate.setOnClickListener {
-            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername(), loginVm.currentUser.value?.cover?.url)
+            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername(), loginVm.currentUser.value?.cover?.toString())
         }
 
         binding.btnJoin.setOnClickListener {
             val code = binding.etCode.text?.toString()?.trim()
-            if (!code.isNullOrBlank() && code.length >= 6) vm.joinSession(code, getActiveUsername(), loginVm.currentUser.value?.cover?.url)
+            if (!code.isNullOrBlank() && code.length >= 6) vm.joinSession(code, getActiveUsername(), loginVm.currentUser.value?.cover?.toString())
             else binding.etCode.error = getString(R.string.listen_together_code_hint)
         }
 
