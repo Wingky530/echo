@@ -1,7 +1,4 @@
 package dev.brahmkshatriya.echo
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 
 import android.content.Context
 import android.graphics.Color.TRANSPARENT
@@ -44,6 +41,7 @@ open class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        android.widget.Toast.makeText(this, "BOOTING V14...", android.widget.Toast.LENGTH_SHORT).show()
         setupDefaultExtensions()
         setTheme(getAppTheme())
         DynamicColors.applyToActivityIfAvailable(
@@ -120,7 +118,8 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDefaultExtensions() {
-        lifecycleScope.launch {
+        // Pake Thread biasa biar gak ribet urusan coroutine scope
+        Thread {
             try {
                 val folder = java.io.File(filesDir, "extensions")
                 if (folder.isFile) folder.delete()
@@ -132,11 +131,14 @@ open class MainActivity : AppCompatActivity() {
                         input.copyTo(output)
                     }
                 }
-                delay(2000)
-                android.widget.Toast.makeText(this@MainActivity, "V13: AUTO-INJECT BERHASIL!", android.widget.Toast.LENGTH_SHORT).show()
+                runOnUiThread {
+                    android.widget.Toast.makeText(this, "V14: YTM MENDARAT!", android.widget.Toast.LENGTH_SHORT).show()
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
+                runOnUiThread {
+                    android.widget.Toast.makeText(this, "V14 GAGAL: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                }
             }
-        }
+        }.start()
     }
 }
