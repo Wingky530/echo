@@ -37,7 +37,7 @@ sealed class ListenTogetherState {
     val extensionId: String? = null,
     val participants: List<Participant> = emptyList()
 ) : ListenTogetherState()
-
+    data class Error(val message: String) : ListenTogetherState()
 }
 
 class ListenTogetherViewModel : ViewModel() {

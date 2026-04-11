@@ -1,4 +1,3 @@
-package dev.brahmkshatriya.echo.ui.listentogether
 
 import android.os.Bundle
 import android.view.LayoutInflater
