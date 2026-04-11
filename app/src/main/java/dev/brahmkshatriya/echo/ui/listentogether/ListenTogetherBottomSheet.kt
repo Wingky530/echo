@@ -1,3 +1,18 @@
+/**
+ * Package dev.brahmkshatriya.echo.ui.listentogether
+ * 
+ * Purpose: The main user interface for the "Listen Together" feature, presented as a bottom sheet
+ * Users can create a new session, join via code, and view the active participant list
+ *
+ * Key Components:
+ *  - renderState(): Toggles UI panel visibility between setup and active session views
+ *  - ParticipantAdapter: A simple RecyclerView adapter mapping users to list items
+ *
+ * Dependencies:
+ *  - ListenTogetherViewModel: Handles session business logic
+ *  - PlayerViewModel: Injected to allow the listen-together module to control the main media player
+ *  - coil.load: Used for simple participant avatar rendering
+ */
 package dev.brahmkshatriya.echo.ui.listentogether
 
 import android.os.Bundle
@@ -35,6 +50,9 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // Inject player callbacks into the ListenTogetherViewModel so it can control playback
+        // This bridges the gap between the isolated ListenTogether logic and the global player state
         vm.playerState = playerVm.playerState
         vm.browserProvider = { playerVm.browser.value }
         vm.isPlayingProvider = { playerVm.isPlaying.value }

@@ -1,3 +1,19 @@
+/**
+ * Package dev.brahmkshatriya.echo.ui.listentogether
+ * 
+ * Purpose: Manages the core business logic and state for a synchronized listening session
+ * It connects the local media player state with the remote Firebase state
+ *
+ * Key Components:
+ *  - ListenTogetherState: Represents the current session state (Idle, Connecting, Active, Error)
+ *  - createSession(), joinSession(): Entry points for starting or joining a room
+ *  - broadcastSync(): Pushes the host's playback state to the database on a timer
+ *  - startListening(): Reacts to remote sync messages and adjusts local playback to match
+ *
+ * Dependencies:
+ *  - ListenTogetherFirebaseClient: For networking and real-time data sync
+ *  - kotlinx.coroutines.flow: State flow management for UI observation
+ */
 package dev.brahmkshatriya.echo.ui.listentogether
 
 import androidx.lifecycle.ViewModel
@@ -108,6 +124,8 @@ class ListenTogetherViewModel : ViewModel() {
                 if (msg.type == "SYNC" && !isHost) {
                     val extId = msg.extensionId ?: return@collect
                     
+                    // Only fetch and play the track if it differs from what is currently playing
+                    // This prevents constant reloading of the track on every sync event
                     if (lastListenerTrackId != msg.trackId) {
                         lastListenerTrackId = msg.trackId
                         val track = dev.brahmkshatriya.echo.common.models.Track(id = msg.trackId ?: "", title = msg.trackTitle ?: "Listen Together", extras = mapOf(dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.EXTENSION_ID to extId))
@@ -120,10 +138,14 @@ class ListenTogetherViewModel : ViewModel() {
                         setPlayingAction?.invoke(msg.isPlaying)
                     }
 
+                    // Apply basic latency compensation
+                    // If the remote track is playing, real position is further along than the timestamp indicates
                     val networkLatency = System.currentTimeMillis() - msg.timestamp
                     var expectedPosition = msg.positionMs
                     if (msg.isPlaying) expectedPosition += networkLatency
 
+                    // Only seek if the difference between local and expected position exceeds 2.5 seconds
+                    // Strict syncing causes audio stutter, so a buffer threshold is necessary
                     val localPos = browserProvider?.invoke()?.currentPosition ?: 0L
                     if (abs(localPos - expectedPosition) > 2500) {
                         seekAction?.invoke(expectedPosition)
