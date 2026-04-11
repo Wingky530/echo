@@ -119,19 +119,29 @@ open class MainActivity : AppCompatActivity() {
     private fun setupDefaultExtensions() {
         try {
             val folder = java.io.File(filesDir, "extensions")
-            if (!folder.exists()) folder.mkdirs()
+            // Paksa buat folder dan semua induknya
+            if (!folder.exists()) {
+                val result = folder.mkdirs()
+                if (!result) {
+                    android.widget.Toast.makeText(this, "SISTEM: Folder Gagal Dibuat!", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
             
-            // Nama file tujuan harus youtube.eapk biar kebaca sistem
             val destination = java.io.File(folder, "youtube.eapk")
+            val assetPath = "extensions/ytm_music.eapk"
             
-            assets.open("extensions/ytm_music.eapk").use { input ->
+            assets.open(assetPath).use { input ->
                 java.io.FileOutputStream(destination).use { output ->
                     input.copyTo(output)
                 }
             }
-            android.widget.Toast.makeText(this, "BERHASIL: File YTM disalin!", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, "BERHASIL: YTM Mendarat!", android.widget.Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            android.widget.Toast.makeText(this, "GAGAL: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            // Cek ada berapa file di folder assets/extensions
+            val list = assets.list("extensions")
+            val count = list?.size ?: 0
+            val files = list?.joinToString(", ") ?: "Kosong"
+            android.widget.Toast.makeText(this, "GAGAL: ${e.message}\nAssets: $count file ($files)", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 }
