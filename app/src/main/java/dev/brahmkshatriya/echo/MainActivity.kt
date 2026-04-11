@@ -119,32 +119,22 @@ open class MainActivity : AppCompatActivity() {
     private fun setupDefaultExtensions() {
         try {
             val folder = java.io.File(filesDir, "extensions")
-            
-            // Jika ada file dengan nama 'extensions', hapus!
-            if (folder.exists() && !folder.isDirectory) {
-                folder.delete()
-            }
-            
-            // Buat folder baru jika belum ada
-            if (!folder.exists()) {
-                folder.mkdirs()
-            }
-            
+            if (!folder.exists()) folder.mkdirs()
             val destination = java.io.File(folder, "youtube.apk")
+            val assetList = assets.list("extensions")?.joinToString(", ") ?: "Kosong"
             
-            // Proses Copy dari Assets
-            assets.open("extensions/youtube.eapk").use { input ->
-                java.io.FileOutputStream(destination).use { output ->
-                    input.copyTo(output)
+            try {
+                assets.open("extensions/youtube.eapk").use { input ->
+                    java.io.FileOutputStream(destination).use { output ->
+                        input.copyTo(output)
+                    }
                 }
+                android.widget.Toast.makeText(this, "SUKSES: YTM Terpasang!", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(this, "ASSETS ERROR: 'youtube.eapk' gak ada di APK. Isi assets/extensions: $assetList", android.widget.Toast.LENGTH_LONG).show()
             }
-            
-            android.widget.Toast.makeText(this, "SUKSES: ${destination.name} (${destination.length()} bytes)", android.widget.Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            // Tampilkan nama class error agar lebih jelas
-            val fullError = "${e.javaClass.simpleName}: ${e.message}"
-            android.widget.Toast.makeText(this, "LOG: $fullError", android.widget.Toast.LENGTH_LONG).show()
-            e.printStackTrace()
+            android.widget.Toast.makeText(this, "SYSTEM ERROR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 }
