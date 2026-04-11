@@ -118,18 +118,31 @@ open class MainActivity : AppCompatActivity() {
 
     private fun setupDefaultExtensions() {
         val extDir = java.io.File(filesDir, "extensions")
-        if (!extDir.exists()) extDir.mkdirs()
+        if (!extDir.exists()) {
+            val created = extDir.mkdirs()
+            if (!created) {
+                android.widget.Toast.makeText(this, "GAGAL: Folder extensions gak bisa dibuat", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
+        }
+        
         val ytmFile = java.io.File(extDir, "youtube.apk")
+        if (ytmFile.exists()) ytmFile.delete() // Hapus yang lama biar gak korup
+
         try {
             assets.open("extensions/youtube.eapk").use { input ->
                 ytmFile.outputStream().use { output ->
                     input.copyTo(output)
                 }
             }
-            // Laporan hasil copy
-            android.widget.Toast.makeText(this, "YTM Terpasang! Size: ${ytmFile.length()} bytes", android.widget.Toast.LENGTH_LONG).show()
+            if (ytmFile.exists() && ytmFile.length() > 0) {
+                android.widget.Toast.makeText(this, "YTM BERHASIL! Size: ${ytmFile.length()} bytes", android.widget.Toast.LENGTH_LONG).show()
+            } else {
+                android.widget.Toast.makeText(this, "ERROR: File nol byte!", android.widget.Toast.LENGTH_LONG).show()
+            }
         } catch (e: Exception) {
-            android.widget.Toast.makeText(this, "ERROR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(this, "DETEKSI ERROR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            e.printStackTrace()
         }
     }
 }
