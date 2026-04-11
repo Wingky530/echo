@@ -118,26 +118,28 @@ open class MainActivity : AppCompatActivity() {
 
     private fun setupDefaultExtensions() {
         try {
-            val folder = java.io.File(filesDir, "extensions")
-            
-            // Hapus paksa kalau ada file/folder lama yang bikin macet
-            if (folder.exists()) {
-                folder.deleteRecursively()
-            }
-            folder.mkdirs()
-            
-            val destination = java.io.File(folder, "youtube.eapk")
             val assetPath = "extensions/ytm_music.eapk"
+            val targetName = "youtube.eapk"
             
-            assets.open(assetPath).use { input ->
-                java.io.FileOutputStream(destination).use { output ->
-                    input.copyTo(output)
+            // Coba di 2 lokasi: Internal Private dan External Data
+            val paths = listOf(
+                java.io.File(filesDir, "extensions"),
+                java.io.File(getExternalFilesDir(null), "extensions")
+            )
+
+            for (folder in paths) {
+                if (!folder.exists()) folder.mkdirs()
+                val dest = java.io.File(folder, targetName)
+                
+                assets.open(assetPath).use { input ->
+                    java.io.FileOutputStream(dest).use { output ->
+                        input.copyTo(output)
+                    }
                 }
             }
-            android.widget.Toast.makeText(this, "AKHIRNYA: YTM BERHASIL!", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, "V10: Auto-Inject Berhasil!", android.widget.Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            val list = assets.list("extensions")?.joinToString(", ") ?: "Kosong"
-            android.widget.Toast.makeText(this, "GAGAL: ${e.message}\nIsi Assets: $list", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(this, "EROR V10: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 }
