@@ -117,38 +117,34 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDefaultExtensions() {
-        val prefs = getSharedPreferences("echo_fix_v16", android.content.Context.MODE_PRIVATE)
-        if (prefs.getBoolean("done", false)) return
+        val prefs = getSharedPreferences("echo_final_fix", android.content.Context.MODE_PRIVATE)
+        if (prefs.getBoolean("ytm_done", false)) return
 
         Thread {
             try {
                 val folder = java.io.File(filesDir, "extensions")
-                
-                // INI BEDANYA: Gilas semua file/folder lama yang bikin eror path
-                if (folder.exists()) {
-                    folder.deleteRecursively()
-                }
+                if (folder.exists()) folder.deleteRecursively()
                 folder.mkdirs()
                 
-                val dest = java.io.File(folder, "youtube.eapk")
+                // Salin dengan nama asli agar tidak salah identitas
+                val dest = java.io.File(folder, "ytm_music.eapk")
                 assets.open("extensions/ytm_music.eapk").use { input ->
                     java.io.FileOutputStream(dest).use { output ->
                         input.copyTo(output)
                     }
                 }
                 
-                prefs.edit().putBoolean("done", true).apply()
+                prefs.edit().putBoolean("ytm_done", true).apply()
                 
                 runOnUiThread {
-                    android.widget.Toast.makeText(this, "V16: GILAS SAMPAH & MENDARAT!", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this, "V17: MENDARAT! MEMAKSA SCAN...", android.widget.Toast.LENGTH_SHORT).show()
+                    // JURUS PAMUNGKAS: Panggil loader buat refresh daftar
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         recreate()
-                    }, 800)
+                    }, 1000)
                 }
             } catch (e: Exception) {
-                runOnUiThread {
-                    android.widget.Toast.makeText(this, "V16 GAGAL: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
-                }
+                e.printStackTrace()
             }
         }.start()
     }
