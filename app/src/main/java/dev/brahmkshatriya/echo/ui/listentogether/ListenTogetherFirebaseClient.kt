@@ -73,6 +73,7 @@ class ListenTogetherFirebaseClient {
             db.getReference("sessions/$code/state").updateChildren(stateMap)
         }
         
+                    if (msg.type == "JOIN" || isHost) {
             val updateData = mutableMapOf<String, Any>(
                 "id" to msg.senderId,
                 "isHost" to isHost,
@@ -82,12 +83,11 @@ class ListenTogetherFirebaseClient {
             msg.senderAvatar?.takeIf { it.isNotBlank() }?.let { updateData["avatarUrl"] = it }
             db.getReference("sessions/$code/participants/${msg.senderId}").updateChildren(updateData)
         }
-        
+
         if (msg.type == "LEAVE") {
             db.getReference("sessions/$code/participants/${msg.senderId}").removeValue()
         }
     }
-
     fun observeParticipants(code: String): Flow<List<Participant>> = callbackFlow {
         val ref = db.getReference("sessions/$code/participants")
         val listener = object : ValueEventListener {
