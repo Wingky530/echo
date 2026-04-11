@@ -119,13 +119,12 @@ open class MainActivity : AppCompatActivity() {
     private fun setupDefaultExtensions() {
         try {
             val folder = java.io.File(filesDir, "extensions")
-            // Paksa buat folder dan semua induknya
-            if (!folder.exists()) {
-                val result = folder.mkdirs()
-                if (!result) {
-                    android.widget.Toast.makeText(this, "SISTEM: Folder Gagal Dibuat!", android.widget.Toast.LENGTH_LONG).show()
-                }
+            
+            // Hapus paksa kalau ada file/folder lama yang bikin macet
+            if (folder.exists()) {
+                folder.deleteRecursively()
             }
+            folder.mkdirs()
             
             val destination = java.io.File(folder, "youtube.eapk")
             val assetPath = "extensions/ytm_music.eapk"
@@ -135,13 +134,10 @@ open class MainActivity : AppCompatActivity() {
                     input.copyTo(output)
                 }
             }
-            android.widget.Toast.makeText(this, "BERHASIL: YTM Mendarat!", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, "AKHIRNYA: YTM BERHASIL!", android.widget.Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            // Cek ada berapa file di folder assets/extensions
-            val list = assets.list("extensions")
-            val count = list?.size ?: 0
-            val files = list?.joinToString(", ") ?: "Kosong"
-            android.widget.Toast.makeText(this, "GAGAL: ${e.message}\nAssets: $count file ($files)", android.widget.Toast.LENGTH_LONG).show()
+            val list = assets.list("extensions")?.joinToString(", ") ?: "Kosong"
+            android.widget.Toast.makeText(this, "GAGAL: ${e.message}\nIsi Assets: $list", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 }
