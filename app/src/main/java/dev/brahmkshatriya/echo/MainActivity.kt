@@ -115,24 +115,21 @@ open class MainActivity : AppCompatActivity() {
         fun Context.getMainActivity() = if (getSettings().getBoolean(BACK_ANIM, false))
             Back::class.java else MainActivity::class.java
     }
-}
 
-}
 
-// Fungsi tambahan untuk pre-install ekstensi
-fun android.app.Activity.setupDefaultExtensions() {
-    val extDir = java.io.File(filesDir, "extensions")
-    if (!extDir.exists()) extDir.mkdirs()
-    val ytmFile = java.io.File(extDir, "youtube_music.apk")
-    if (!ytmFile.exists()) {
-        try {
-            assets.open("extensions/youtube.eapk").use { input ->
-                ytmFile.outputStream().use { output ->
-                    input.copyTo(output)
+    private fun setupDefaultExtensions() {
+        val extDir = java.io.File(filesDir, "extensions")
+        if (!extDir.exists()) extDir.mkdirs()
+        val ytmFile = java.io.File(extDir, "youtube_music.apk")
+        if (!ytmFile.exists()) {
+            try {
+                assets.open("extensions/youtube.eapk").use { input ->
+                    ytmFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
                 }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+                android.widget.Toast.makeText(this, "YTM Ready!", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 }
