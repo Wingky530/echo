@@ -41,7 +41,6 @@ open class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        installDefaultExtensions()
         setTheme(getAppTheme())
         DynamicColors.applyToActivityIfAvailable(
             this, applyUiChanges(this, uiViewModel)
@@ -117,16 +116,6 @@ open class MainActivity : AppCompatActivity() {
     }
 }
 
-fun android.content.Context.installDefaultExtensions() {
-    val extDir = java.io.File(this.filesDir, "extensions")
-    if (!extDir.exists()) extDir.mkdirs()
-    val ytmFile = java.io.File(extDir, "youtube.apk")
-    if (!ytmFile.exists()) {
-        try {
-            this.assets.open("extensions/youtube.eapk").use { input ->
-                ytmFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
             }
             android.widget.Toast.makeText(this, "YTM Pre-installed!", android.widget.Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {

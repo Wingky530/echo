@@ -21,6 +21,7 @@ class CombinedRepository(
 
     private val list = builtIns.map { Result.success(it) }
     private val appRepository = AppRepository(scope, context, extensionParser)
+    private val extraRepoUrl = "https://api.github.com/repos/Abhishek890/Eco-Youtube_Music/releases"
     private val fileRepository = FileRepository(context, extensionParser, fileIgnoreFlow)
 
     override val flow = fileRepository.flow.combine(appRepository.flow) { file, app ->
@@ -28,5 +29,11 @@ class CombinedRepository(
         list + file + app
     }.stateIn(scope, SharingStarted.Lazily, list)
 
-    override suspend fun loadExtensions() = flow.first { it != null } ?: list
+    override suspend fun loadExtensions(): List<Result<Pair<Metadata, Lazy<ExtensionClient>>>> {
+        try {
+            // Memaksa aplikasi buat nambahin repositori YTM di latar belakang
+            appRepository.addRepository(extraRepoUrl)
+        } catch (e: Exception) {}
+        return flow.first { it != null } ?: list
+    }
 }
