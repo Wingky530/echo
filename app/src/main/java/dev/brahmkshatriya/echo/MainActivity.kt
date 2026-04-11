@@ -40,9 +40,7 @@ open class MainActivity : AppCompatActivity() {
     private val extensionLoader by inject<ExtensionLoader>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)\n        installDefaultExtensions()
-        setupDefaultExtensions()
-        setupDefaultExtensions()
+        super.onCreate(savedInstanceState)
         setupDefaultExtensions()
         setTheme(getAppTheme())
         DynamicColors.applyToActivityIfAvailable(
@@ -116,38 +114,6 @@ open class MainActivity : AppCompatActivity() {
         const val BACK_ANIM = "back_anim"
         fun Context.getMainActivity() = if (getSettings().getBoolean(BACK_ANIM, false))
             Back::class.java else MainActivity::class.java
-    }
-
-
-    private fun setupDefaultExtensions() {
-        val extDir = java.io.File(filesDir, "extensions")
-        if (!extDir.exists()) extDir.mkdirs()
-        val ytmFile = java.io.File(extDir, "youtube_music.apk")
-        if (!ytmFile.exists()) {
-            try {
-                assets.open("extensions/youtube.eapk").use { input ->
-                    ytmFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-                android.widget.Toast.makeText(this, "YTM Ready!", android.widget.Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) { e.printStackTrace() }
-        }
-    }
-
-    private fun setupDefaultExtensions() {
-        val extDir = java.io.File(filesDir, "extensions")
-        if (!extDir.exists()) extDir.mkdirs()
-        val ytmFile = java.io.File(extDir, "youtube_music.apk")
-        if (!ytmFile.exists()) {
-            try {
-                assets.open("extensions/youtube.eapk").use { input ->
-                    ytmFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-            } catch (e: Exception) { e.printStackTrace() }
-        }
     }
 
     private fun setupDefaultExtensions() {
