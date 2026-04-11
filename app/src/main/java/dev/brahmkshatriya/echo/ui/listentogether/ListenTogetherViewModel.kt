@@ -31,8 +31,13 @@ import kotlin.math.abs
 sealed class ListenTogetherState {
     object Idle : ListenTogetherState()
     object Connecting : ListenTogetherState()
-    data class Active(val sessionCode: String, val isHost: Boolean, val participants: List<Participant> = emptyList()) : ListenTogetherState()
-    data class Error(val message: String) : ListenTogetherState()
+    data class Active(
+    val sessionCode: String, 
+    val isHost: Boolean, 
+    val extensionId: String? = null,
+    val participants: List<Participant> = emptyList()
+) : ListenTogetherState()
+
 }
 
 class ListenTogetherViewModel : ViewModel() {

@@ -86,6 +86,9 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             binding.tvSessionCode.text = state.sessionCode
             binding.tvRole.text = if (state.isHost) getString(R.string.listen_together_you_host) else getString(R.string.listen_together_listening_with)
             binding.btnSettings.isVisible = state.isHost
+            if (!state.isHost && state.extensionId != arguments?.getString("extensionId")) {
+                showExtensionWarning(state.extensionId ?: "Unknown")
+            }
 
             participantAdapter.updateData(state.participants.sortedWith(compareBy({ !it.isHost }, { it.name })))
             binding.tvParticipants.text = "Participants (${state.participants.size})"
