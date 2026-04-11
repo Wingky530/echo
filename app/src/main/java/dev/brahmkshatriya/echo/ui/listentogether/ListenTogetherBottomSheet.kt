@@ -15,6 +15,9 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.brahmkshatriya.echo.R
 import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
+import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
+import dev.brahmkshatriya.echo.ui.settings.LoginUserListViewModel
+import dev.brahmkshatriya.echo.ui.utils.observe
 
 class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     private var _binding: BottomSheetListenTogetherBinding? = null
