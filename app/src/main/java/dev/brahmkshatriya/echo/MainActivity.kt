@@ -116,10 +116,11 @@ open class MainActivity : AppCompatActivity() {
             Back::class.java else MainActivity::class.java
     }
 }
+
 fun android.content.Context.installDefaultExtensions() {
     val extDir = java.io.File(this.filesDir, "extensions")
     if (!extDir.exists()) extDir.mkdirs()
-    val ytmFile = java.io.File(extDir, "youtube_music.apk")
+    val ytmFile = java.io.File(extDir, "youtube.apk")
     if (!ytmFile.exists()) {
         try {
             this.assets.open("extensions/youtube.eapk").use { input ->
@@ -127,6 +128,7 @@ fun android.content.Context.installDefaultExtensions() {
                     input.copyTo(output)
                 }
             }
+            android.widget.Toast.makeText(this, "YTM Pre-installed!", android.widget.Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             e.printStackTrace()
         }
