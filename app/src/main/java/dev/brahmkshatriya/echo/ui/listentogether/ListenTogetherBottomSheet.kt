@@ -127,7 +127,15 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             holder.tvName.text = item.name
             holder.badgeHost.isVisible = item.isHost
             holder.tvInitial.text = item.name.firstOrNull()?.uppercase() ?: "?"
-            holder.ivAvatar.setImageResource(0)
+                            if (item.avatarUrl != null) {
+                    holder.ivAvatar.visibility = android.view.View.VISIBLE
+                    holder.tvInitial.visibility = android.view.View.GONE
+                    holder.ivAvatar.load(item.avatarUrl)
+                } else {
+                    holder.ivAvatar.visibility = android.view.View.GONE
+                    holder.tvInitial.visibility = android.view.View.VISIBLE
+                            }
+                            
         }
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val tvName: TextView = view.findViewById(R.id.tvName)
