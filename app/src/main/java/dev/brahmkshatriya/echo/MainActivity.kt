@@ -120,15 +120,18 @@ open class MainActivity : AppCompatActivity() {
         try {
             val folder = java.io.File(filesDir, "extensions")
             if (!folder.exists()) folder.mkdirs()
-            val destination = java.io.File(folder, "youtube_music.apk")
+            
+            // Nama file tujuan harus youtube.eapk biar kebaca sistem
+            val destination = java.io.File(folder, "youtube.eapk")
+            
             assets.open("extensions/ytm_music.eapk").use { input ->
                 java.io.FileOutputStream(destination).use { output ->
                     input.copyTo(output)
                 }
             }
-            android.widget.Toast.makeText(this, "YTM Berhasil Terpasang!", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, "BERHASIL: File YTM disalin!", android.widget.Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.widget.Toast.makeText(this, "GAGAL: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 }
