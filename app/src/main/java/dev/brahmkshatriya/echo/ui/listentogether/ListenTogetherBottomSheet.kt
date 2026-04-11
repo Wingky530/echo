@@ -1,18 +1,3 @@
-/**
- * Package dev.brahmkshatriya.echo.ui.listentogether
- * 
- * Purpose: The main user interface for the "Listen Together" feature, presented as a bottom sheet
- * Users can create a new session, join via code, and view the active participant list
- *
- * Key Components:
- *  - renderState(): Toggles UI panel visibility between setup and active session views
- *  - ParticipantAdapter: A simple RecyclerView adapter mapping users to list items
- *
- * Dependencies:
- *  - ListenTogetherViewModel: Handles session business logic
- *  - PlayerViewModel: Injected to allow the listen-together module to control the main media player
- *  - coil.load: Used for simple participant avatar rendering
- */
 package dev.brahmkshatriya.echo.ui.listentogether
 
 import android.os.Bundle
@@ -52,9 +37,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        // Inject player callbacks into the ListenTogetherViewModel so it can control playback
-        // This bridges the gap between the isolated ListenTogether logic and the global player state
         vm.playerState = playerVm.playerState
         vm.browserProvider = { playerVm.browser.value }
         vm.isPlayingProvider = { playerVm.isPlaying.value }
@@ -64,7 +46,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
         binding.rvParticipants.adapter = participantAdapter
         
-        // Cara standar buat mantau StateFlow di Fragment
         viewLifecycleOwner.lifecycleScope.launch {
             vm.state.collect { renderState(it) }
         }
@@ -105,11 +86,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             binding.tvSessionCode.text = state.sessionCode
             binding.tvRole.text = if (state.isHost) getString(R.string.listen_together_you_host) else getString(R.string.listen_together_listening_with)
             binding.btnSettings.isVisible = state.isHost
-
-            val currentExt = arguments?.getString("extensionId")
-            if (state.extensionId != currentExt) {
-                showExtensionWarning(state.extensionId)
-            }
 
             participantAdapter.updateData(state.participants.sortedWith(compareBy({ !it.isHost }, { it.name })))
             binding.tvParticipants.text = "Participants (${state.participants.size})"
