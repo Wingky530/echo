@@ -116,20 +116,26 @@ open class MainActivity : AppCompatActivity() {
             Back::class.java else MainActivity::class.java
     }
 
-    private fun setupDefaultExtensions() {
-        val extDir = java.io.File(filesDir, "extensions")
-        if (!extDir.exists()) extDir.mkdirs()
-        val ytmFile = java.io.File(extDir, "youtube.apk")
-        if (!ytmFile.exists()) {
-            try {
-                assets.open("extensions/youtube.eapk").use { input ->
-                    ytmFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    private fun setupDefaultExtensions() {
+        android.widget.Toast.makeText(this, "DEBUG: Memulai Instalasi YTM...", android.widget.Toast.LENGTH_LONG).show()
+        val extDir = java.io.File(filesDir, "extensions")
+        if (!extDir.exists()) extDir.mkdirs()
+        val ytmFile = java.io.File(extDir, "youtube.apk")
+        try {
+            assets.open("extensions/youtube.eapk").use { input ->
+                ytmFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }
