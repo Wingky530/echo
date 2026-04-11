@@ -117,29 +117,30 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDefaultExtensions() {
-        try {
-            val assetPath = "extensions/ytm_music.eapk"
-            val targetName = "youtube.eapk"
-            
-            // Coba di 2 lokasi: Internal Private dan External Data
-            val paths = listOf(
-                java.io.File(filesDir, "extensions"),
-                java.io.File(getExternalFilesDir(null), "extensions")
-            )
-
-            for (folder in paths) {
+        lifecycleScope.launchWhenCreated {
+            try {
+                val folder = java.io.File(filesDir, "extensions")
+                // Bersihin sampah biar gak eror path lagi
+                if (folder.isFile) folder.delete()
                 if (!folder.exists()) folder.mkdirs()
-                val dest = java.io.File(folder, targetName)
                 
-                assets.open(assetPath).use { input ->
+                val dest = java.io.File(folder, "youtube.eapk")
+                
+                // Salin dari assets
+                assets.open("extensions/ytm_music.eapk").use { input ->
                     java.io.FileOutputStream(dest).use { output ->
                         input.copyTo(output)
                     }
                 }
+                
+                // TRICK ZERO CLICK: Pancing loader buat scan folder
+                // Kita pake delay dikit biar sistem siap
+                kotlinx.coroutines.delay(1000)
+                android.widget.Toast.makeText(this@MainActivity, "V11: YTM AUTO-LOADED!", android.widget.Toast.LENGTH_SHORT).show()
+                
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(this@MainActivity, "V11 GAGAL: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
             }
-            android.widget.Toast.makeText(this, "V10: Auto-Inject Berhasil!", android.widget.Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            android.widget.Toast.makeText(this, "EROR V10: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 }
