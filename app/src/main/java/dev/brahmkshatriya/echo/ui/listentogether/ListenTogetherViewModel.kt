@@ -5,31 +5,24 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Data class representing a participant in a session.
- */
-data class Participant(
-    val name: String,
-    val isHost: Boolean,
-    val avatarUrl: String? = null
-)
-
-/**
- * Sealed class defining all possible states for the Listen Together feature.
+ * Defines the possible states of a Listen Together session.
  */
 sealed class ListenTogetherState {
     object Idle : ListenTogetherState()
     object Connecting : ListenTogetherState()
+    
     data class Active(
         val sessionCode: String,
         val isHost: Boolean,
         val extensionId: String? = null,
         val participants: List<Participant> = emptyList()
     ) : ListenTogetherState()
+    
     data class Error(val message: String) : ListenTogetherState()
 }
 
 /**
- * ViewModel to manage playback synchronization and session states.
+ * ViewModel for managing the Listen Together feature.
  */
 class ListenTogetherViewModel : ViewModel() {
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
@@ -43,12 +36,7 @@ class ListenTogetherViewModel : ViewModel() {
     var seekAction: Any? = null
     var setPlayingAction: Any? = null
 
-    /** Logic for creating a new session */
     fun createSession() {}
-    
-    /** Logic for joining an existing session */
     fun joinSession(code: String) {}
-    
-    /** Logic for leaving the current session */
     fun leaveSession() {}
 }
