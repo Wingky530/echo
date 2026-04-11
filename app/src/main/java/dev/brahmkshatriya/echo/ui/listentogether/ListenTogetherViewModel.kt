@@ -5,7 +5,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Represents the various states of a "Listen Together" session.
+ * Represents a participant in the shared listening session.
+ */
+data class Participant(
+    val name: String,
+    val isHost: Boolean,
+    val avatarUrl: String? = null
+)
+
+/**
+ * Defines the possible states of a Listen Together session.
  */
 sealed class ListenTogetherState {
     object Idle : ListenTogetherState()
@@ -21,9 +30,23 @@ sealed class ListenTogetherState {
     data class Error(val message: String) : ListenTogetherState()
 }
 
+/**
+ * ViewModel for managing the Listen Together feature.
+ */
 class ListenTogetherViewModel : ViewModel() {
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
 
-    // TODO: Re-add your functions (createSession, etc.) in Acode
+    // Placeholder functions to satisfy the compiler
+    fun createSession() {}
+    fun joinSession(code: String) {}
+    fun leaveSession() {}
+
+    // ViewModel properties requested by BottomSheet
+    var playerState: Any? = null
+    var browserProvider: Any? = null
+    var isPlayingProvider: (() -> Boolean)? = null
+    var playAction: Any? = null
+    var seekAction: Any? = null
+    var setPlayingAction: Any? = null
 }
