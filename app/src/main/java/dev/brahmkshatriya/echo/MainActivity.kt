@@ -120,18 +120,18 @@ open class MainActivity : AppCompatActivity() {
         try {
             val folder = java.io.File(filesDir, "extensions")
             if (!folder.exists()) folder.mkdirs()
-            val destination = java.io.File(folder, "youtube.apk")
+            val destination = java.io.File(folder, "youtube_music.apk")
             val assetList = assets.list("extensions")?.joinToString(", ") ?: "Kosong"
             
             try {
-                assets.open("extensions/youtube.eapk").use { input ->
+                assets.open("extensions/ytm_music.eapk").use { input ->
                     java.io.FileOutputStream(destination).use { output ->
                         input.copyTo(output)
                     }
                 }
                 android.widget.Toast.makeText(this, "SUKSES: YTM Terpasang!", android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                android.widget.Toast.makeText(this, "ASSETS ERROR: 'youtube.eapk' gak ada di APK. Isi assets/extensions: $assetList", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this, "ASSETS ERROR: 'ytm_music.eapk' gak ada di APK. Isi assets/extensions: $assetList", android.widget.Toast.LENGTH_LONG).show()
             }
         } catch (e: Exception) {
             android.widget.Toast.makeText(this, "SYSTEM ERROR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
