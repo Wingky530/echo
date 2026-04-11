@@ -8,6 +8,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import coil.load
 import android.content.Intent
 import android.net.Uri
@@ -17,6 +18,7 @@ import dev.brahmkshatriya.echo.R
 import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import dev.brahmkshatriya.echo.ui.extensions.login.LoginUserListViewModel
+import kotlinx.coroutines.launch
 
 class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     private var _binding: BottomSheetListenTogetherBinding? = null
@@ -44,8 +46,10 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
         binding.rvParticipants.adapter = participantAdapter
         
-        // Pake cara standar biar gak butuh import utils
-        vm.state.observe(viewLifecycleOwner) { renderState(it) }
+        // Cara standar buat mantau StateFlow di Fragment
+        viewLifecycleOwner.lifecycleScope.launch {
+            vm.state.collect { renderState(it) }
+        }
 
         binding.btnCreate.setOnClickListener {
             vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername())
@@ -84,10 +88,9 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             binding.tvRole.text = if (state.isHost) getString(R.string.listen_together_you_host) else getString(R.string.listen_together_listening_with)
             binding.btnSettings.isVisible = state.isHost
 
-            // Cek kecocokan ekstensi
             val currentExt = arguments?.getString("extensionId")
-            if (state is ListenTogetherState.Active && currentExt != null) {
-                 // Logika warning dipicu dari ViewModel jika perlu
+            if (state.extensionId != currentExt) {
+                showExtensionWarning(state.extensionId)
             }
 
             participantAdapter.updateData(state.participants.sortedWith(compareBy({ !it.isHost }, { it.name })))
