@@ -38,12 +38,6 @@ data class WsMessage(
     val trackArtist: String? = null
 )
 
-data class Participant(
-    val id: String,
-    val name: String,
-    val avatarUrl: String? = null,
-    val isHost: Boolean = false
-)
 
 class ListenTogetherFirebaseClient {
     val clientId: String = UUID.randomUUID().toString().take(8)
