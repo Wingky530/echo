@@ -1,3 +1,16 @@
+/**
+ * Package dev.brahmkshatriya.echo.ui.listentogether
+ * 
+ * Purpose: A basic settings screen allowing users to configure their display name 
+ * before joining or creating a listen-together session
+ *
+ * Key Components:
+ *  - SharedPreferences instance: Used to persist the username between app sessions
+ *  - TextWatcher binding: Dynamically updates the temporary avatar preview as typing occurs
+ *
+ * Dependencies:
+ *  - android.content.SharedPreferences: Standard Android key-value storage
+ */
 package dev.brahmkshatriya.echo.ui.listentogether
 
 import android.content.Context

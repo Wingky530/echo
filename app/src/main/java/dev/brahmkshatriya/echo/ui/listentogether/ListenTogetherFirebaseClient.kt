@@ -1,3 +1,18 @@
+/**
+ * Package dev.brahmkshatriya.echo.ui.listentogether
+ * 
+ * Purpose: Custom Firebase client acting as a real-time bridge for the "Listen Together" feature
+ * It handles the WebSocket-like communication for syncing playback states and managing session participants
+ *
+ * Key Components:
+ *  - WsMessage: Data class for syncing playback position, play/pause state, and track info
+ *  - Participant: Data class representing users in the session
+ *  - connect(), send(), observeParticipants(): Methods handling Firebase Realtime Database interactions via flows
+ *
+ * Dependencies:
+ *  - com.google.firebase.database: For low-latency real-time state synchronization
+ *  - kotlinx.coroutines.flow: For converting callback-based Firebase listeners into cold flows
+ */
 package dev.brahmkshatriya.echo.ui.listentogether
 
 import com.google.firebase.database.DataSnapshot
@@ -33,13 +48,14 @@ data class Participant(
 class ListenTogetherFirebaseClient {
     val clientId: String = UUID.randomUUID().toString().take(8)
     private val db = FirebaseDatabase.getInstance("https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app")
-
+    // Bridges Firebase's realtime callback into a cold Flow that automatically unregisters the listener when cancelled
     fun connect(code: String): Flow<WsMessage> = callbackFlow {
         val ref = db.getReference("sessions/$code/state")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 if (!snapshot.exists()) return
                 val sender = snapshot.child("senderId").value?.toString() ?: ""
+                // Ignore messages sent by this client to prevent an infinite feedback loop
                 if (sender == clientId) return
                 val msg = WsMessage(
                     type = "SYNC",
@@ -125,4 +141,3 @@ class ListenTogetherFirebaseClient {
         }.addOnFailureListener { onResult(null) }
     }
 }
-// trigger build
