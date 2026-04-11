@@ -75,7 +75,7 @@ class ListenTogetherFirebaseClient {
         
         if (msg.type == "JOIN" || isHost) {
             db.getReference("sessions/$code/participants/${msg.senderId}")
-                .setValue(mapOf(
+                .updateChildren(mapOf(
                     "id" to msg.senderId,
                     "name" to (msg.senderName ?: "Guest"),
                     "avatarUrl" to msg.senderAvatar,
