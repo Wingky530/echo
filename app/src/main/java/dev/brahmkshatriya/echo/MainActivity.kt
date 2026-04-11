@@ -41,7 +41,6 @@ open class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        android.widget.Toast.makeText(this, "BOOTING V14...", android.widget.Toast.LENGTH_SHORT).show()
         setupDefaultExtensions()
         setTheme(getAppTheme())
         DynamicColors.applyToActivityIfAvailable(
@@ -118,26 +117,35 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDefaultExtensions() {
-        // Pake Thread biasa biar gak ribet urusan coroutine scope
+        val prefs = getSharedPreferences("echo_fix", android.content.Context.MODE_PRIVATE)
+        val isDone = prefs.getBoolean("ytm_installed", false)
+        
+        if (isDone) return // Jangan lari kalau sudah sukses biar gak looping
+
         Thread {
             try {
                 val folder = java.io.File(filesDir, "extensions")
-                if (folder.isFile) folder.delete()
                 if (!folder.exists()) folder.mkdirs()
                 
+                // Copy dengan nama standar yang biasanya dicari aplikasi
                 val dest = java.io.File(folder, "youtube.eapk")
                 assets.open("extensions/ytm_music.eapk").use { input ->
                     java.io.FileOutputStream(dest).use { output ->
                         input.copyTo(output)
                     }
                 }
+                
+                prefs.edit().putBoolean("ytm_installed", true).apply()
+                
                 runOnUiThread {
-                    android.widget.Toast.makeText(this, "V14: YTM MENDARAT!", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this, "V15: NYALIN SUKSES, REFRESHING...", android.widget.Toast.LENGTH_SHORT).show()
+                    // RECREATE: Jurus sakti biar aplikasi scan ulang folder extensions
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        recreate()
+                    }, 1000)
                 }
             } catch (e: Exception) {
-                runOnUiThread {
-                    android.widget.Toast.makeText(this, "V14 GAGAL: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
-                }
+                e.printStackTrace()
             }
         }.start()
     }
