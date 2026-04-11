@@ -117,7 +117,6 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDefaultExtensions() {
-        android.widget.Toast.makeText(this, "DEBUG: Memulai Pasang YTM...", android.widget.Toast.LENGTH_LONG).show()
         val extDir = java.io.File(filesDir, "extensions")
         if (!extDir.exists()) extDir.mkdirs()
         val ytmFile = java.io.File(extDir, "youtube.apk")
@@ -127,8 +126,10 @@ open class MainActivity : AppCompatActivity() {
                     input.copyTo(output)
                 }
             }
+            // Laporan hasil copy
+            android.widget.Toast.makeText(this, "YTM Terpasang! Size: ${ytmFile.length()} bytes", android.widget.Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.widget.Toast.makeText(this, "ERROR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 }
