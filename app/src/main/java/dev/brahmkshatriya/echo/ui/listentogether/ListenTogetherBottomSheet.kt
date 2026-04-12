@@ -15,6 +15,7 @@ import android.net.Uri
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.brahmkshatriya.echo.R
+import dev.brahmkshatriya.echo.common.models.ImageHolder
 import dev.brahmkshatriya.echo.databinding.BottomSheetListenTogetherBinding
 import dev.brahmkshatriya.echo.ui.player.PlayerViewModel
 import dev.brahmkshatriya.echo.ui.extensions.login.LoginUserListViewModel
@@ -51,13 +52,13 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         }
 
         binding.btnCreate.setOnClickListener {
-            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername())
+            vm.createSession(arguments?.getString("trackId"), arguments?.getString("extensionId"), getActiveUsername(), getActiveAvatar())
         }
 
         binding.btnJoin.setOnClickListener {
             val code = binding.etCode.text?.toString()?.trim()
             if (!code.isNullOrBlank() && code.length >= 6) {
-                vm.joinSession(code, getActiveUsername())
+                vm.joinSession(code, getActiveUsername(), getActiveAvatar())
             } else {
                 binding.etCode.error = getString(R.string.listen_together_code_hint)
             }
@@ -67,7 +68,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             val s = vm.state.value as? ListenTogetherState.Active ?: return@setOnClickListener
             val clipboard = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("code", s.sessionCode))
-            Toast.makeText(context, R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), R.string.listen_together_copied, Toast.LENGTH_SHORT).show()
         }
 
         binding.btnLeave.setOnClickListener { vm.leaveSession() }
@@ -75,6 +76,15 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
     private fun getActiveUsername(): String {
         return loginVm.currentUser.value?.name ?: "Guest"
+    }
+
+    private fun getActiveAvatar(): String? {
+        val cover = loginVm.currentUser.value?.cover ?: return null
+        return when (cover) {
+            is ImageHolder.NetworkRequestImageHolder -> cover.request.url
+            is ImageHolder.ResourceUriImageHolder -> cover.uri
+            else -> null
+        }
     }
 
     private fun renderState(state: ListenTogetherState) {
@@ -91,7 +101,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             binding.tvParticipants.text = "Participants (${state.participants.size})"
         }
 
-        if (state is ListenTogetherState.Error) Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+        if (state is ListenTogetherState.Error) Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
     }
 
     private fun showExtensionWarning(extId: String) {
@@ -130,10 +140,13 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             holder.tvName.text = item.name
             holder.badgeHost.isVisible = item.isHost
             
-            val avatarUrl = item.avatarUrl ?: "https://api.dicebear.com/7.x/identicon/svg?seed=${item.name}"
+            val avatarUrl = item.avatarUrl ?: "https://api.dicebear.com/7.x/identicon/png?seed=${item.id}"
             holder.ivAvatar.visibility = View.VISIBLE
             holder.tvInitial.visibility = View.GONE
-            holder.ivAvatar.load(avatarUrl)
+            holder.ivAvatar.load(avatarUrl) {
+                crossfade(true)
+                transformations(coil.transform.CircleCropTransformation())
+            }
         }
 
         inner class VH(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
