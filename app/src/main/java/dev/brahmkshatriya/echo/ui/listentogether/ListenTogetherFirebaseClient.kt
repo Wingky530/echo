@@ -23,26 +23,66 @@ class ListenTogetherFirebaseClient {
     private val db = FirebaseDatabase.getInstance("https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app")
 
     fun connect(code: String): Flow<WsMessage> = callbackFlow {
-        val ref = db.getReference("sessions/$code/state")
+        val stateRef = db.getReference("sessions/$code/state")
+        // FIXED: Balikin jalur commands yang sempet gue hapus
+        val cmdRef = db.getReference("sessions/$code/commands")
+        
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 if (!snapshot.exists()) return
                 val sender = snapshot.child("senderId").value?.toString() ?: ""
                 if (sender == clientId) return
-                trySend(WsMessage("SYNC", snapshot.child("trackId").value?.toString(), snapshot.child("extensionId").value?.toString(), snapshot.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L, snapshot.child("isPlaying").value?.toString()?.toBoolean() ?: false, sender, null, null, snapshot.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L, snapshot.child("trackTitle").value?.toString(), snapshot.child("queueContext").value?.toString()))
+                
+                // FIXED: Ambil tipe pesan biar Host tau ini SYNC atau ADD_QUEUE
+                val msgType = snapshot.child("type").value?.toString() ?: "SYNC"
+                
+                trySend(WsMessage(
+                    msgType, 
+                    snapshot.child("trackId").value?.toString(), 
+                    snapshot.child("extensionId").value?.toString(), 
+                    snapshot.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L, 
+                    snapshot.child("isPlaying").value?.toString()?.toBoolean() ?: false, 
+                    sender, null, null, 
+                    snapshot.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L, 
+                    snapshot.child("trackTitle").value?.toString(), 
+                    snapshot.child("queueContext").value?.toString()
+                ))
             }
             override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
-        ref.addValueEventListener(listener)
-        awaitClose { ref.removeEventListener(listener) }
+        
+        stateRef.addValueEventListener(listener)
+        cmdRef.addValueEventListener(listener) // Dengerin commands
+        
+        awaitClose { 
+            stateRef.removeEventListener(listener)
+            cmdRef.removeEventListener(listener)
+        }
     }
 
     fun send(code: String, msg: WsMessage, isHost: Boolean = false) {
-        if (msg.type == "SYNC") {
-            val syncData = mutableMapOf<String, Any?>("trackId" to msg.trackId, "extensionId" to msg.extensionId, "positionMs" to msg.positionMs, "isPlaying" to msg.isPlaying, "senderId" to msg.senderId, "timestamp" to msg.timestamp, "trackTitle" to msg.trackTitle)
+        // FIXED: Pastiin pesannya dikirim ke jalur yang bener
+        if (msg.type == "SYNC" || msg.type == "ADD_QUEUE") {
+            val ref = if (msg.type == "ADD_QUEUE") {
+                db.getReference("sessions/$code/commands")
+            } else {
+                db.getReference("sessions/$code/state")
+            }
+
+            val syncData = mutableMapOf<String, Any?>(
+                "type" to msg.type,
+                "trackId" to msg.trackId, 
+                "extensionId" to msg.extensionId, 
+                "positionMs" to msg.positionMs, 
+                "isPlaying" to msg.isPlaying, 
+                "senderId" to msg.senderId, 
+                "timestamp" to msg.timestamp, 
+                "trackTitle" to msg.trackTitle
+            )
             if (msg.queueContext != null) syncData["queueContext"] = msg.queueContext
-            db.getReference("sessions/$code/state").updateChildren(syncData)
+            ref.setValue(syncData)
         }
+
         if (msg.type == "JOIN" || isHost) {
             val nameToSet = msg.senderName?.takeIf { it.isNotBlank() && it != "Guest" } ?: "Guest-${msg.senderId.take(4)}"
             val pRef = db.getReference("sessions/$code/participants/${msg.senderId}")
@@ -65,7 +105,6 @@ class ListenTogetherFirebaseClient {
         }.addOnFailureListener { onResult(null) }
     }
 
-    // FUNGSI INI YANG TADI BIKIN ERROR UNRESOLVED REFERENCE
     fun observeParticipants(code: String): Flow<List<Participant>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -78,7 +117,6 @@ class ListenTogetherFirebaseClient {
         awaitClose { db.getReference("sessions/$code/participants").removeEventListener(listener) }
     }
 
-    // FUNGSI INI JUGA YANG TADI BIKIN ERROR UNRESOLVED REFERENCE
     fun observePermission(code: String): Flow<Int> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) { trySend(snapshot.value?.toString()?.toIntOrNull() ?: 3) }
