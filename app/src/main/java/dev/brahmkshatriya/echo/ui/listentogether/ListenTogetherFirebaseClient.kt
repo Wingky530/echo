@@ -17,21 +17,18 @@ class ListenTogetherFirebaseClient {
     private val db = FirebaseDatabase.getInstance("https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app")
     
     fun connect(code: String): Flow<WsMessage> = callbackFlow {
-        val ref = db.getReference("sessions/$code/state")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (!snapshot.exists()) {
-                    trySend(WsMessage(type = "ROOM_DESTROYED"))
-                    return
-                }
+                // 🔧 FIX: Jangan kirim ROOM_DESTROYED di sini, biar gak auto-kick pas baru connect
+                if (!snapshot.exists()) return 
                 val sender = snapshot.child("senderId").value?.toString() ?: ""
                 if (sender == clientId) return
                 trySend(WsMessage("SYNC", snapshot.child("trackId").value?.toString(), snapshot.child("extensionId").value?.toString(), snapshot.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L, snapshot.child("isPlaying").value?.toString()?.toBoolean() ?: false, sender, null, null, snapshot.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L, snapshot.child("trackTitle").value?.toString()))
             }
             override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
-        ref.addValueEventListener(listener)
-        awaitClose { ref.removeEventListener(listener) }
+        db.getReference("sessions/$code/state").addValueEventListener(listener)
+        awaitClose { db.getReference("sessions/$code/state").removeEventListener(listener) }
     }
 
     fun send(code: String, msg: WsMessage, isHost: Boolean = false) {
@@ -48,7 +45,14 @@ class ListenTogetherFirebaseClient {
     
     fun observeParticipants(code: String): Flow<List<Participant>> = callbackFlow {
         val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) { trySend(snapshot.children.mapNotNull { Participant(it.child("id").value?.toString() ?: return@mapNotNull null, it.child("name").value?.toString() ?: "Guest", it.child("avatarUrl").value?.toString(), it.child("isHost").value?.toString()?.toBoolean() ?: false) }) }
+            override fun onDataChange(snapshot: DataSnapshot) {
+                // 🔧 FIX: Guest ditendang kalau Host hapus room (data participants hilang)
+                if (!snapshot.exists()) {
+                    trySend(emptyList()) 
+                    return
+                }
+                trySend(snapshot.children.mapNotNull { Participant(it.child("id").value?.toString() ?: return@mapNotNull null, it.child("name").value?.toString() ?: "Guest", it.child("avatarUrl").value?.toString(), it.child("isHost").value?.toString()?.toBoolean() ?: false) })
+            }
             override fun onCancelled(error: DatabaseError) {}
         }
         db.getReference("sessions/$code/participants").addValueEventListener(listener)

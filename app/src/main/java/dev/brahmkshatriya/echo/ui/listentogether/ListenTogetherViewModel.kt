@@ -50,27 +50,21 @@ class ListenTogetherViewModel : ViewModel() {
     fun joinSession(code: String, userName: String, avatarUrl: String? = null) {
         _state.value = ListenTogetherState.Connecting
         val cleanCode = code.uppercase().trim()
-        
-        // 🔧 FIX: Cek dulu room-nya beneran ada atau fiktif
         firebase.getCurrentState(cleanCode) { msg ->
             if (msg == null) {
                 _state.value = ListenTogetherState.Error("Room does not exist or has ended")
                 return@getCurrentState
             }
-            
             viewModelScope.launch {
                 try {
-                    // Room valid, baru kirim JOIN
                     firebase.send(cleanCode, WsMessage("JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl), false)
                     _state.value = ListenTogetherState.Active(cleanCode, false)
-                    
                     if (msg.trackId != null && msg.extensionId != null) {
                         lastListenerTrackId = msg.trackId
                         playAction?.invoke(msg.extensionId, dev.brahmkshatriya.echo.common.models.Track(id = msg.trackId, title = msg.trackTitle ?: "Listen Together", extras = mapOf(dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.EXTENSION_ID to msg.extensionId)), false)
                         if (msg.positionMs > 0) seekAction?.invoke(msg.positionMs)
                         setPlayingAction?.invoke(msg.isPlaying)
                     }
-                    
                     startListening(cleanCode, false); observeParticipants(cleanCode); observePermission(cleanCode)
                 } catch (e: Exception) { _state.value = ListenTogetherState.Error(e.message ?: "Failed") }
             }
@@ -111,11 +105,6 @@ class ListenTogetherViewModel : ViewModel() {
     private fun startListening(code: String, isHost: Boolean) {
         listenJob?.cancel(); listenJob = viewModelScope.launch {
             firebase.connect(code).collect { msg ->
-                if (msg.type == "ROOM_DESTROYED") {
-                    viewModelScope.launch { _event.emit("Host has ended the session") }
-                    leaveSession()
-                    return@collect
-                }
                 if (msg.type == "SYNC" && !isHost) {
                     val extId = msg.extensionId ?: return@collect
                     if (lastListenerTrackId != msg.trackId) {
@@ -131,12 +120,17 @@ class ListenTogetherViewModel : ViewModel() {
         }
     }
 
-    // 🔧 FIX: Hapus logika penendang cacat dari sini
     private fun observeParticipants(code: String) { 
         participantsJob?.cancel()
         participantsJob = viewModelScope.launch { 
             firebase.observeParticipants(code).collect { p -> 
                 val s = _state.value as? ListenTogetherState.Active ?: return@collect
+                // 🔧 FIX: Guest tendang kalau data room hilang (Host ends session)
+                if (!s.isHost && p.isEmpty()) {
+                    viewModelScope.launch { _event.emit("Host has ended the session") }
+                    leaveSession()
+                    return@collect
+                }
                 _state.value = s.copy(participants = p) 
             } 
         } 
