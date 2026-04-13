@@ -40,7 +40,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        vm.addToQueueAction = { extId, track -> playerVm.addToQueue(extId, track, false) }
+        vm.addToQueueAction = { extId, track -> playerVm.playNext(extId, track) }
         vm.playerState = playerVm.playerState
         vm.browserProvider = { playerVm.browser.value }
         vm.isPlayingProvider = { playerVm.isPlaying.value }

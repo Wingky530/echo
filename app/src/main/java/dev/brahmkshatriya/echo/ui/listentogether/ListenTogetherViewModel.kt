@@ -41,7 +41,8 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     private val _event = MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val event = _event.asSharedFlow()
 
-    private var lastSeenQueueSize = 0
+    // FIXED: Pake List buat ngelacak ID lagu satu-satu
+    private var lastSeenQueueIds = listOf<String>()
     private var lastSeenTrackId: String? = null
     private var lastSeenPosition: Long = 0L
     private var isApplyingRemoteState = false
@@ -91,13 +92,18 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
                 val browser = browserProvider?.invoke() ?: continue
                 val item = playerState?.current?.value?.mediaItem ?: continue
                 
-                if (browser.mediaItemCount > lastSeenQueueSize && lastSeenQueueSize != 0) {
-                    val newTrack = browser.getMediaItemAt(browser.mediaItemCount - 1).track
-                    if (newTrack != null) {
-                        firebase.send(s.sessionCode, WsMessage("ADD_QUEUE", newTrack.id, item.extensionId, senderId = firebase.clientId, trackTitle = newTrack.title))
+                // FIXED: Deteksi lagu masuk secara lebih detail (Play Next/Add to Queue)
+                val currentQueueIds = (0 until browser.mediaItemCount).mapNotNull { browser.getMediaItemAt(it).track?.id }
+                if (currentQueueIds.size > lastSeenQueueIds.size && lastSeenQueueIds.isNotEmpty()) {
+                    val addedIds = currentQueueIds.filter { it !in lastSeenQueueIds }
+                    addedIds.forEach { newId ->
+                        val newTrack = (0 until browser.mediaItemCount).map { browser.getMediaItemAt(it) }.find { it.track?.id == newId }?.track
+                        if (newTrack != null) {
+                            firebase.send(s.sessionCode, WsMessage("ADD_QUEUE", newId, item.extensionId, senderId = firebase.clientId, trackTitle = newTrack.title))
+                        }
                     }
                 }
-                lastSeenQueueSize = browser.mediaItemCount
+                lastSeenQueueIds = currentQueueIds
                 
                 if (item.track.id != lastSeenTrackId || abs(browser.currentPosition - lastSeenPosition) > 3000) {
                     firebase.send(s.sessionCode, WsMessage("SYNC", item.track.id, item.extensionId, browser.currentPosition, browser.isPlaying, firebase.clientId, timestamp = System.currentTimeMillis(), trackTitle = item.track.title), s.isHost)
@@ -107,7 +113,6 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
             }
         }
 
-        // PEMANGGILAN FUNGSI YANG TADI ERROR ADA DI SINI
         viewModelScope.launch {
             firebase.observeParticipants(code).collect { p ->
                 val s = _state.value as? ListenTogetherState.Active ?: return@collect
