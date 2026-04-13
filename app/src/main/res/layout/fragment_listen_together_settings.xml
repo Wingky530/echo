@@ -6,6 +6,8 @@
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
+    android:fitsSystemWindows="true"
+    android:paddingTop="32dp"
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
@@ -23,6 +25,14 @@
             android:padding="24dp">
 
             <!-- Avatar Preview -->
+    
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/ivIdenticonPreview"
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="24dp"
+        android:visibility="gone" />
             <FrameLayout
                 android:layout_width="96dp"
                 android:layout_height="96dp"
