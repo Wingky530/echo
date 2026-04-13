@@ -54,7 +54,7 @@ object MediaItemUtils {
     ): MediaItem = with(mediaItem) {
         val item = buildUpon()
         val metadata = state.toMetaData(
-            mediaMetadata.extrascd ~/echo, downloads, context, true, app
+            mediaMetadata.extrasgh run watch, downloads, context, true, app
         )
         item.setMediaMetadata(metadata)
         return item.build()
