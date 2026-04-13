@@ -96,7 +96,6 @@ class QueueAdapter(
         val isCurrent = current != null
         val isPlaying = current == true
         val track = item.track
-        
         val addedBy = item.addedByName
         val avatarUrl = item.addedByAvatar
         
@@ -143,12 +142,10 @@ class QueueAdapter(
                 marquee()
             }
 
-            // --- Third Row Logic ---
             val container = playlistItemAuthor.parent as? LinearLayout
             if (container != null) {
                 var addedByContainer = container.findViewWithTag<LinearLayout>("added_by_container")
                 
-                // Only create if we have data AND it hasn't been created for this view yet
                 if (addedByContainer == null && !addedBy.isNullOrEmpty()) {
                     addedByContainer = LinearLayout(root.context).apply {
                         tag = "added_by_container"
@@ -183,21 +180,18 @@ class QueueAdapter(
                     container.addView(addedByContainer, index)
                 }
 
-                // Update content or hide if no data
                 addedByContainer?.run {
                     isVisible = !addedBy.isNullOrEmpty()
                     if (isVisible) {
                         val avatarView = findViewWithTag<ImageView>("added_by_avatar")
                         val nameView = findViewWithTag<TextView>("added_by_name")
-                        
                         nameView?.text = "Added by $addedBy"
                         
-                        // Using Identicon as fallback if avatarUrl is missing
                         val finalAvatar = avatarUrl ?: "https://api.dicebear.com/7.x/identicon/png?seed=$addedBy"
                         avatarView?.load(finalAvatar) {
                             transformations(CircleCropTransformation())
                             crossfade(true)
-                            error(R.drawable.art_music) // Standard music icon as last resort
+                            error(R.drawable.art_music)
                         }
                     }
                 }
