@@ -1,4 +1,5 @@
 package dev.brahmkshatriya.echo.playback.listener
+import dev.brahmkshatriya.echo.ui.listentogether.ListenTogetherStatus
 
 import android.content.SharedPreferences
 import androidx.media3.common.MediaItem
@@ -111,6 +112,7 @@ class PlayerRadio(
     }
 
     private suspend fun startRadio() {
+    if (ListenTogetherStatus.isGuest) return
         if (!autoStartRadio) return
         val shouldNotStart = withContext(Dispatchers.Main) {
             player.run {
