@@ -1,16 +1,3 @@
-/**
- * Package dev.brahmkshatriya.echo.ui.listentogether
- * 
- * Purpose: A basic settings screen allowing users to configure their display name 
- * before joining or creating a listen-together session
- *
- * Key Components:
- *  - SharedPreferences instance: Used to persist the username between app sessions
- *  - TextWatcher binding: Dynamically updates the temporary avatar preview as typing occurs
- *
- * Dependencies:
- *  - android.content.SharedPreferences: Standard Android key-value storage
- */
 package dev.brahmkshatriya.echo.ui.listentogether
 
 import android.content.Context
@@ -20,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import coil.load
 import dev.brahmkshatriya.echo.R
 import dev.brahmkshatriya.echo.databinding.FragmentListenTogetherSettingsBinding
 
@@ -55,24 +43,34 @@ class ListenTogetherSettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val prefs = requireContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-
-        // Load saved username
         val savedUsername = prefs.getString(KEY_USERNAME, "") ?: ""
+        
         binding.etUsername.setText(savedUsername)
 
-        // Update avatar preview saat username berubah
+        fun updatePreview(name: String) {
+            if (name.isNotBlank()) {
+                binding.tvAvatarInitial.visibility = View.GONE
+                binding.ivIdenticonPreview.visibility = View.VISIBLE
+                binding.ivIdenticonPreview.load("https://api.dicebear.com/7.x/identicon/png?seed=$name") {
+                    crossfade(true)
+                    transformations(coil.transform.CircleCropTransformation())
+                }
+            } else {
+                binding.tvAvatarInitial.visibility = View.VISIBLE
+                binding.ivIdenticonPreview.visibility = View.GONE
+                binding.tvAvatarInitial.text = "?"
+            }
+        }
+
+        updatePreview(savedUsername)
+
         binding.etUsername.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
-                val initial = s?.firstOrNull()?.uppercase() ?: "?"
-                binding.tvAvatarInitial.text = initial
+                updatePreview(s?.toString()?.trim() ?: "")
             }
         })
-
-        // Set initial avatar
-        val initial = savedUsername.firstOrNull()?.uppercase() ?: "?"
-        binding.tvAvatarInitial.text = initial
 
         binding.btnSave.setOnClickListener {
             val username = binding.etUsername.text?.toString()?.trim()
@@ -81,7 +79,7 @@ class ListenTogetherSettingsFragment : Fragment() {
                 return@setOnClickListener
             }
             prefs.edit().putString(KEY_USERNAME, username).apply()
-            Toast.makeText(context, R.string.listen_together_save, Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), R.string.listen_together_save, Toast.LENGTH_SHORT).show()
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
 

@@ -75,7 +75,10 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun getActiveUsername(): String {
-        return loginVm.currentUser.value?.name ?: "Guest"
+        val loginName = loginVm.currentUser.value?.name
+        if (!loginName.isNullOrBlank()) return loginName
+        val customName = ListenTogetherSettingsFragment.getUsername(requireContext())
+        return if (customName.isNotBlank()) customName else "Guest"
     }
 
     private fun getActiveAvatar(): String? {
@@ -140,7 +143,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             holder.tvName.text = item.name
             holder.badgeHost.isVisible = item.isHost
             
-            val avatarUrl = item.avatarUrl ?: "https://api.dicebear.com/7.x/identicon/png?seed=${item.id}"
+            val avatarUrl = item.avatarUrl ?: "https://api.dicebear.com/7.x/identicon/png?seed=${item.name}"
             holder.ivAvatar.visibility = View.VISIBLE
             holder.tvInitial.visibility = View.GONE
             holder.ivAvatar.load(avatarUrl) {
