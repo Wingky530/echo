@@ -143,11 +143,12 @@ class QueueAdapter(
                 marquee()
             }
 
-            // Enhanced Third Row Injection with Avatar support
+            // --- Third Row Logic ---
             val container = playlistItemAuthor.parent as? LinearLayout
             if (container != null) {
                 var addedByContainer = container.findViewWithTag<LinearLayout>("added_by_container")
                 
+                // Only create if we have data AND it hasn't been created for this view yet
                 if (addedByContainer == null && !addedBy.isNullOrEmpty()) {
                     addedByContainer = LinearLayout(root.context).apply {
                         tag = "added_by_container"
@@ -157,24 +158,22 @@ class QueueAdapter(
                             LinearLayout.LayoutParams.MATCH_PARENT,
                             LinearLayout.LayoutParams.WRAP_CONTENT
                         ).apply {
-                            topMargin = 2 // Small gap from artist row
+                            topMargin = 4 
                         }
 
-                        // Create Avatar Image
                         val avatarView = ImageView(root.context).apply {
                             tag = "added_by_avatar"
-                            layoutParams = LinearLayout.LayoutParams(36, 36).apply {
-                                rightMargin = 8
+                            layoutParams = LinearLayout.LayoutParams(40, 40).apply {
+                                rightMargin = 12
                             }
                         }
                         addView(avatarView)
 
-                        // Create Name Text
                         val nameView = TextView(root.context).apply {
                             tag = "added_by_name"
-                            textSize = 11f
+                            textSize = 10.5f
                             setTextColor(playlistItemAuthor.currentTextColor)
-                            alpha = 0.7f
+                            alpha = 0.6f
                             maxLines = 1
                             ellipsize = TextUtils.TruncateAt.END
                         }
@@ -184,6 +183,7 @@ class QueueAdapter(
                     container.addView(addedByContainer, index)
                 }
 
+                // Update content or hide if no data
                 addedByContainer?.run {
                     isVisible = !addedBy.isNullOrEmpty()
                     if (isVisible) {
@@ -192,11 +192,12 @@ class QueueAdapter(
                         
                         nameView?.text = "Added by $addedBy"
                         
-                        // Load Avatar with Circle Crop
-                        avatarView?.load(avatarUrl ?: "https://api.dicebear.com/7.x/identicon/png?seed=$addedBy") {
+                        // Using Identicon as fallback if avatarUrl is missing
+                        val finalAvatar = avatarUrl ?: "https://api.dicebear.com/7.x/identicon/png?seed=$addedBy"
+                        avatarView?.load(finalAvatar) {
                             transformations(CircleCropTransformation())
-                            placeholder(R.drawable.ic_default_avatar) // Replace with your default icon
-                            error(R.drawable.ic_default_avatar)
+                            crossfade(true)
+                            error(R.drawable.art_music) // Standard music icon as last resort
                         }
                     }
                 }
