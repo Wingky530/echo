@@ -17,7 +17,6 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 import kotlin.math.abs
 
-// Jembatan buat PlayerRadio.kt
 object ListenTogetherStatus {
     var isGuest: Boolean = false
 }
@@ -41,7 +40,6 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     val state: StateFlow<ListenTogetherState> = _state
     private val _permission = MutableStateFlow(3)
     val permission: StateFlow<Int> = _permission
-    
     private val _event = MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val event = _event.asSharedFlow()
 
@@ -64,37 +62,37 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch(Dispatchers.Main) { Toast.makeText(getApplication(), msg, Toast.LENGTH_SHORT).show() }
     }
 
-    private fun saveLocalUserToPrefs(u: String, a: String?) {
-        getApplication<Application>().getSharedPreferences("lt_prefs", Context.MODE_PRIVATE).edit().putString("u", u).putString("a", a).apply()
-    }
-
-    fun createSession(tId: String?, eId: String?, uName: String, avatar: String? = null) {
-        saveLocalUserToPrefs(uName, avatar)
+    fun createSession(trackId: String?, extensionId: String?, userName: String, avatarUrl: String? = null) {
         val code = (1..6).map { "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Random.nextInt(32)] }.joinToString("")
         ListenTogetherStatus.isGuest = false
-        _state.value = ListenTogetherState.Active(code, true, listOf(Participant(firebase.clientId, uName, avatar, true)))
-        firebase.send(code, WsMessage("JOIN", senderId = firebase.clientId, senderName = uName, senderAvatar = avatar), true)
+        _state.value = ListenTogetherState.Active(code, true, listOf(Participant(firebase.clientId, userName, avatarUrl, true)))
+        firebase.send(code, WsMessage("JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl), true)
+        firebase.setPermission(code, 3) 
         startListening(code); startSyncManager(); observeParticipants(code); observePermission(code)
     }
 
-    fun joinSession(code: String, uName: String, avatar: String? = null) {
+    fun joinSession(code: String, userName: String, avatarUrl: String? = null) {
         _state.value = ListenTogetherState.Connecting
-        val clean = code.uppercase().trim()
-        firebase.checkRoomExists(clean) { exists ->
+        val cleanCode = code.uppercase().trim()
+        firebase.checkRoomExists(cleanCode) { exists ->
             if (!exists) { _state.value = ListenTogetherState.Error("Room not found"); return@checkRoomExists }
-            saveLocalUserToPrefs(uName, avatar); ListenTogetherStatus.isGuest = true
+            ListenTogetherStatus.isGuest = true
             viewModelScope.launch {
-                firebase.send(clean, WsMessage("JOIN", senderId = firebase.clientId, senderName = uName, senderAvatar = avatar), false)
-                _state.value = ListenTogetherState.Active(clean, false)
-                startListening(clean); startSyncManager(); observeParticipants(clean); observePermission(clean)
+                firebase.send(cleanCode, WsMessage("JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl), false)
+                _state.value = ListenTogetherState.Active(cleanCode, false)
+                startListening(cleanCode); startSyncManager(); observeParticipants(cleanCode); observePermission(cleanCode)
             }
         }
     }
 
-    private suspend fun applyRemoteState(msg: WsMessage, sender: String? = null) {
+    private suspend fun applyRemoteState(msg: WsMessage, senderName: String? = null) {
         val extId = msg.extensionId ?: return
-        if (playerState?.current?.value?.mediaItem?.track?.id != msg.trackId) {
-            val track = Track(id = msg.trackId ?: "", title = msg.trackTitle ?: "Syncing", extras = if (sender != null) mapOf("addedBy" to sender) else emptyMap())
+        val localTrackId = playerState?.current?.value?.mediaItem?.track?.id
+        expectedTrackId = msg.trackId; expectedIsPlaying = msg.isPlaying
+        if (localTrackId != msg.trackId) {
+            val trackExtras = mutableMapOf<String, String>()
+            senderName?.let { trackExtras["addedByName"] = it }
+            val track = Track(id = msg.trackId ?: "", title = msg.trackTitle ?: "Sync", extras = trackExtras)
             playAction?.invoke(extId, track, false); delay(1500)
         }
         if ((isPlayingProvider?.invoke() ?: false) != msg.isPlaying) setPlayingAction?.invoke(msg.isPlaying)
@@ -127,6 +125,11 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    fun updatePermission(level: Int) { 
+        val s = _state.value as? ListenTogetherState.Active ?: return
+        if (s.isHost) firebase.setPermission(s.sessionCode, level)
+    }
+
     private fun observeParticipants(code: String) {
         participantsJob?.cancel(); participantsJob = viewModelScope.launch {
             firebase.observeParticipants(code).collect { p ->
@@ -139,7 +142,7 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
 
     private fun observePermission(code: String) {
         permissionJob?.cancel(); permissionJob = viewModelScope.launch {
-            firebase.observePermission(code).collect { _permission.value = it } // FIXED: _permission
+            firebase.observePermission(code).collect { _permission.value = it }
         }
     }
 

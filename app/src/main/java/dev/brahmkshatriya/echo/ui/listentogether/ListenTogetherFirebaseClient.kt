@@ -10,17 +10,10 @@ import kotlinx.coroutines.flow.callbackFlow
 import java.util.UUID
 
 data class WsMessage(
-    val type: String = "", 
-    val trackId: String? = null, 
-    val extensionId: String? = null, 
-    val positionMs: Long = 0, 
-    val isPlaying: Boolean = false, 
-    val senderId: String = "", 
-    val senderName: String? = null, 
-    val senderAvatar: String? = null, 
-    val timestamp: Long = 0, 
-    val trackTitle: String? = null,
-    val queueContext: String? = null
+    val type: String = "", val trackId: String? = null, val extensionId: String? = null,
+    val positionMs: Long = 0, val isPlaying: Boolean = false, val senderId: String = "",
+    val senderName: String? = null, val senderAvatar: String? = null,
+    val timestamp: Long = 0, val trackTitle: String? = null, val queueContext: String? = null
 )
 
 data class Participant(val id: String, val name: String, val avatarUrl: String? = null, val isHost: Boolean = false)
@@ -32,7 +25,7 @@ class ListenTogetherFirebaseClient {
     fun connect(code: String): Flow<WsMessage> = callbackFlow {
         val ref = db.getReference("sessions/$code/state")
         val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) { // FIXED: DataSnapshot
+            override fun onDataChange(snapshot: DataSnapshot) {
                 if (!snapshot.exists()) return
                 val sender = snapshot.child("senderId").value?.toString() ?: ""
                 if (sender == clientId) return
@@ -46,19 +39,16 @@ class ListenTogetherFirebaseClient {
 
     fun send(code: String, msg: WsMessage, isHost: Boolean = false) {
         if (msg.type == "SYNC") {
-            // FIXED: Explicit <String, Any?> untuk mencegah type mismatch
-            val syncData = mutableMapOf<String, Any?>(
-                "trackId" to msg.trackId, "extensionId" to msg.extensionId, 
-                "positionMs" to msg.positionMs, "isPlaying" to msg.isPlaying, 
-                "senderId" to msg.senderId, "timestamp" to msg.timestamp, "trackTitle" to msg.trackTitle
-            )
+            val syncData = mutableMapOf<String, Any?>("trackId" to msg.trackId, "extensionId" to msg.extensionId, "positionMs" to msg.positionMs, "isPlaying" to msg.isPlaying, "senderId" to msg.senderId, "timestamp" to msg.timestamp, "trackTitle" to msg.trackTitle)
             if (msg.queueContext != null) syncData["queueContext"] = msg.queueContext
             db.getReference("sessions/$code/state").updateChildren(syncData)
         }
         if (msg.type == "JOIN" || isHost) {
             val nameToSet = msg.senderName?.takeIf { it.isNotBlank() && it != "Guest" } ?: "Guest-${msg.senderId.take(4)}"
             val pRef = db.getReference("sessions/$code/participants/${msg.senderId}")
-            pRef.updateChildren(mapOf<String, Any?>("id" to msg.senderId, "isHost" to isHost, "lastSeen" to System.currentTimeMillis(), "name" to nameToSet) + (msg.senderAvatar?.takeIf { it.isNotBlank() }?.let { mapOf("avatarUrl" to it) } ?: emptyMap()))
+            val pData = mutableMapOf<String, Any?>("id" to msg.senderId, "isHost" to isHost, "lastSeen" to System.currentTimeMillis(), "name" to nameToSet)
+            msg.senderAvatar?.takeIf { it.isNotBlank() }?.let { pData["avatarUrl"] = it }
+            pRef.updateChildren(pData)
             pRef.onDisconnect().removeValue()
             if (isHost) db.getReference("sessions/$code").onDisconnect().removeValue()
         }
@@ -77,7 +67,7 @@ class ListenTogetherFirebaseClient {
 
     fun observeParticipants(code: String): Flow<List<Participant>> = callbackFlow {
         val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) { // FIXED: DataSnapshot
+            override fun onDataChange(snapshot: DataSnapshot) {
                 if (!snapshot.exists()) { trySend(emptyList()); return }
                 trySend(snapshot.children.mapNotNull { Participant(it.child("id").value?.toString() ?: return@mapNotNull null, it.child("name").value?.toString() ?: "Guest", it.child("avatarUrl").value?.toString(), it.child("isHost").value?.toString()?.toBoolean() ?: false) })
             }
@@ -89,9 +79,7 @@ class ListenTogetherFirebaseClient {
 
     fun observePermission(code: String): Flow<Int> = callbackFlow {
         val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) { // FIXED: DataSnapshot
-                trySend(snapshot.value?.toString()?.toIntOrNull() ?: 3)
-            }
+            override fun onDataChange(snapshot: DataSnapshot) { trySend(snapshot.value?.toString()?.toIntOrNull() ?: 3) }
             override fun onCancelled(error: DatabaseError) {}
         }
         db.getReference("sessions/$code/permission").addValueEventListener(listener)
