@@ -54,7 +54,7 @@ object MediaItemUtils {
     ): MediaItem = with(mediaItem) {
         val item = buildUpon()
         val metadata = state.toMetaData(
-            mediaMetadata.extras!!, downloads, context, true, app
+            mediaMetadata.extrasgit pull origin main, downloads, context, true, app
         )
         item.setMediaMetadata(metadata)
         return item.build()
@@ -184,8 +184,10 @@ object MediaItemUtils {
                 putSerialized("state", this@toMetaData)
                 putSerialized("context", context)
                 putBoolean("loaded", loaded)
-                putString("addedByName", bundle.getString("addedByName"))
-                putString("addedByAvatar", bundle.getString("addedByAvatar"))
+                
+                putString("addedByName", bundle.getString("addedByName") ?: this@toMetaData.item.extras["addedByName"])
+                putString("addedByAvatar", bundle.getString("addedByAvatar") ?: this@toMetaData.item.extras["addedByAvatar"])
+                
                 putInt("subtitleIndex", subtitleIndex ?: 0.takeIf { subtitles.isNotEmpty() } ?: -1)
                 putInt(
                     "backgroundIndex", backgroundIndex ?: 0.takeIf {
