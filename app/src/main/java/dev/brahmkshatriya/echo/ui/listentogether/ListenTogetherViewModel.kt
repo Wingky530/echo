@@ -3,7 +3,7 @@ package dev.brahmkshatriya.echo.ui.listentogether
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import dev.brahmkshatriya.echo.playback.MediaItemUtils.extensionId // FIXED: Import ini yang tadi ilang
+import dev.brahmkshatriya.echo.playback.MediaItemUtils.extensionId
 import dev.brahmkshatriya.echo.playback.MediaItemUtils.track
 import dev.brahmkshatriya.echo.common.models.Track
 import kotlinx.coroutines.*
@@ -35,11 +35,9 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
     
-    // FIXED: permission yang hilang
     private val _permission = MutableStateFlow(3)
     val permission: StateFlow<Int> = _permission
 
-    // FIXED: event yang hilang bikin BottomSheet error
     private val _event = MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val event = _event.asSharedFlow()
 
@@ -109,6 +107,7 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
             }
         }
 
+        // PEMANGGILAN FUNGSI YANG TADI ERROR ADA DI SINI
         viewModelScope.launch {
             firebase.observeParticipants(code).collect { p ->
                 val s = _state.value as? ListenTogetherState.Active ?: return@collect
@@ -125,7 +124,6 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     private suspend fun applyRemoteState(msg: WsMessage) {
         val extId = msg.extensionId ?: return
         if (playerState?.current?.value?.mediaItem?.track?.id != msg.trackId) {
-            // FIXED: Pakai explicit named argument 'extras = emptyMap()' biar gak bentrok sama Track.Type
             playAction?.invoke(extId, Track(id = msg.trackId ?: "", title = msg.trackTitle ?: "Sync", extras = emptyMap()), false)
             delay(1500)
         }
@@ -134,7 +132,6 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
         if (abs((browserProvider?.invoke()?.currentPosition ?: 0L) - expected) > 3000) seekAction?.invoke(expected)
     }
 
-    // FIXED: updatePermission yang sempat hilang
     fun updatePermission(level: Int) { 
         val s = _state.value as? ListenTogetherState.Active ?: return
         if (s.isHost) firebase.setPermission(s.sessionCode, level)
