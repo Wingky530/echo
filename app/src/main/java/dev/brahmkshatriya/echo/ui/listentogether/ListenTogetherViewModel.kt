@@ -28,7 +28,7 @@ class ListenTogetherViewModel : ViewModel() {
 
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
-    private val _permission = MutableStateFlow(3)
+    private val _permission = MutableStateFlow(3) // Default to Full Control (Bitmask 3)
     val permission: StateFlow<Int> = _permission
     private val _event = MutableSharedFlow<String>()
     val event = _event.asSharedFlow()
@@ -39,39 +39,60 @@ class ListenTogetherViewModel : ViewModel() {
     private var permissionJob: Job? = null
     private var hostBroadcastJob: Job? = null
     private var lastListenerTrackId: String? = null
+    private var lastHostMsg: WsMessage? = null
 
     fun createSession(trackId: String?, extensionId: String?, userName: String, avatarUrl: String? = null) {
         val code = (1..6).map { "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Random.nextInt(32)] }.joinToString("")
         _state.value = ListenTogetherState.Active(code, true, listOf(Participant(firebase.clientId, userName, avatarUrl, true)))
         firebase.send(code, WsMessage("JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl), true)
+        firebase.setPermission(code, 3) // Push default Full Control to Firebase
         startListening(code, true); startHostBroadcast(code); observeParticipants(code); observePermission(code)
     }
 
     fun joinSession(code: String, userName: String, avatarUrl: String? = null) {
         _state.value = ListenTogetherState.Connecting
         val cleanCode = code.uppercase().trim()
-        firebase.getCurrentState(cleanCode) { msg ->
-            if (msg == null) {
+        
+        firebase.checkRoomExists(cleanCode) { exists ->
+            if (!exists) {
+                // If room doesn't exist, set error state to trigger Toast
                 _state.value = ListenTogetherState.Error("Room does not exist or has ended")
-                return@getCurrentState
+                return@checkRoomExists
             }
             viewModelScope.launch {
                 try {
                     firebase.send(cleanCode, WsMessage("JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl), false)
                     _state.value = ListenTogetherState.Active(cleanCode, false)
-                    if (msg.trackId != null && msg.extensionId != null) {
-                        lastListenerTrackId = msg.trackId
-                        playAction?.invoke(msg.extensionId, dev.brahmkshatriya.echo.common.models.Track(id = msg.trackId, title = msg.trackTitle ?: "Listen Together", extras = mapOf(dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.EXTENSION_ID to msg.extensionId)), false)
-                        if (msg.positionMs > 0) seekAction?.invoke(msg.positionMs)
-                        setPlayingAction?.invoke(msg.isPlaying)
+                    
+                    firebase.getCurrentState(cleanCode) { msg ->
+                        if (msg?.trackId != null && msg.extensionId != null) {
+                            viewModelScope.launch { applyRemoteState(msg) }
+                        }
                     }
                     startListening(cleanCode, false); observeParticipants(cleanCode); observePermission(cleanCode)
-                } catch (e: Exception) { _state.value = ListenTogetherState.Error(e.message ?: "Failed") }
+                } catch (e: Exception) { _state.value = ListenTogetherState.Error(e.message ?: "Failed to join") }
             }
         }
     }
 
-    fun updatePermission(level: Int) { val s = _state.value as? ListenTogetherState.Active ?: return; if (s.isHost) firebase.setPermission(s.sessionCode, level) }
+    private suspend fun applyRemoteState(msg: WsMessage) {
+        val extId = msg.extensionId ?: return
+        if (lastListenerTrackId != msg.trackId) {
+            lastListenerTrackId = msg.trackId
+            val track = dev.brahmkshatriya.echo.common.models.Track(id = msg.trackId ?: "", title = msg.trackTitle ?: "Listen Together", extras = mapOf(dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.EXTENSION_ID to extId))
+            playAction?.invoke(extId, track, false)
+            delay(1200)
+        }
+        if ((isPlayingProvider?.invoke() ?: false) != msg.isPlaying) setPlayingAction?.invoke(msg.isPlaying)
+        val expected = msg.positionMs + if (msg.isPlaying) System.currentTimeMillis() - msg.timestamp else 0
+        val localPos = browserProvider?.invoke()?.currentPosition ?: 0L
+        if (abs(localPos - expected) > 2500) seekAction?.invoke(expected)
+    }
+
+    fun updatePermission(level: Int) { 
+        val s = _state.value as? ListenTogetherState.Active ?: return
+        if (s.isHost) firebase.setPermission(s.sessionCode, level)
+    }
 
     fun leaveSession() {
         val s = _state.value as? ListenTogetherState.Active ?: return
@@ -80,8 +101,7 @@ class ListenTogetherViewModel : ViewModel() {
         } else {
             firebase.send(s.sessionCode, WsMessage("LEAVE", senderId = firebase.clientId))
         }
-        listenJob?.cancel(); participantsJob?.cancel(); permissionJob?.cancel(); hostBroadcastJob?.cancel(); lastListenerTrackId = null
-        _state.value = ListenTogetherState.Idle
+        listenJob?.cancel(); participantsJob?.cancel(); permissionJob?.cancel(); hostBroadcastJob?.cancel(); _state.value = ListenTogetherState.Idle
     }
 
     private fun startHostBroadcast(code: String) {
@@ -92,50 +112,37 @@ class ListenTogetherViewModel : ViewModel() {
                 if (!s.isHost) break
                 val current = playerState?.current?.value ?: continue
                 val track = current.mediaItem.track
-                broadcastSync(track.id, current.mediaItem.extensionId ?: continue, browserProvider?.invoke()?.currentPosition ?: 0L, isPlayingProvider?.invoke() ?: false, track.title)
+                firebase.send(code, WsMessage("SYNC", track.id, current.mediaItem.extensionId ?: "", browserProvider?.invoke()?.currentPosition ?: 0L, isPlayingProvider?.invoke() ?: false, firebase.clientId, timestamp = System.currentTimeMillis(), trackTitle = track.title), true)
             }
         }
-    }
-
-    fun broadcastSync(tId: String, eId: String?, pMs: Long, isP: Boolean, tTitle: String?) {
-        val s = _state.value as? ListenTogetherState.Active ?: return
-        if (s.isHost) firebase.send(s.sessionCode, WsMessage("SYNC", tId, eId, pMs, isP, firebase.clientId, timestamp = System.currentTimeMillis(), trackTitle = tTitle), true)
     }
 
     private fun startListening(code: String, isHost: Boolean) {
         listenJob?.cancel(); listenJob = viewModelScope.launch {
             firebase.connect(code).collect { msg ->
                 if (msg.type == "SYNC" && !isHost) {
-                    val extId = msg.extensionId ?: return@collect
-                    if (lastListenerTrackId != msg.trackId) {
-                        lastListenerTrackId = msg.trackId
-                        playAction?.invoke(extId, dev.brahmkshatriya.echo.common.models.Track(id = msg.trackId ?: "", title = msg.trackTitle ?: "Listen Together", extras = mapOf(dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.EXTENSION_ID to extId)), false)
-                        delay(1200)
-                    }
-                    if ((isPlayingProvider?.invoke() ?: false) != msg.isPlaying) setPlayingAction?.invoke(msg.isPlaying)
-                    val expected = msg.positionMs + if (msg.isPlaying) System.currentTimeMillis() - msg.timestamp else 0
-                    if (abs((browserProvider?.invoke()?.currentPosition ?: 0L) - expected) > 2500) seekAction?.invoke(expected)
+                    lastHostMsg = msg
+                    applyRemoteState(msg)
                 }
             }
         }
     }
 
-    private fun observeParticipants(code: String) { 
-        participantsJob?.cancel()
-        participantsJob = viewModelScope.launch { 
-            firebase.observeParticipants(code).collect { p -> 
+    private fun observeParticipants(code: String) {
+        participantsJob?.cancel(); participantsJob = viewModelScope.launch {
+            firebase.observeParticipants(code).collect { p ->
                 val s = _state.value as? ListenTogetherState.Active ?: return@collect
-                // 🔧 FIX: Guest tendang kalau data room hilang (Host ends session)
-                if (!s.isHost && p.isEmpty()) {
-                    viewModelScope.launch { _event.emit("Host has ended the session") }
-                    leaveSession()
-                    return@collect
+                if (!s.isHost && p.isEmpty()) { 
+                    _event.emit("Host has ended the session"); leaveSession(); return@collect 
                 }
-                _state.value = s.copy(participants = p) 
-            } 
-        } 
+                _state.value = s.copy(participants = p)
+            }
+        }
     }
-    
-    private fun observePermission(code: String) { permissionJob?.cancel(); permissionJob = viewModelScope.launch { firebase.observePermission(code).collect { _permission.value = it } } }
-    override fun onCleared() { super.onCleared(); if (_state.value is ListenTogetherState.Active) leaveSession() }
+
+    private fun observePermission(code: String) {
+        permissionJob?.cancel(); permissionJob = viewModelScope.launch {
+            firebase.observePermission(code).collect { _permission.value = it }
+        }
+    }
 }

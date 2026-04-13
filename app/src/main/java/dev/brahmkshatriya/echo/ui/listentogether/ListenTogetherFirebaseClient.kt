@@ -17,9 +17,9 @@ class ListenTogetherFirebaseClient {
     private val db = FirebaseDatabase.getInstance("https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app")
     
     fun connect(code: String): Flow<WsMessage> = callbackFlow {
+        val ref = db.getReference("sessions/$code/state")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                // 🔧 FIX: Jangan kirim ROOM_DESTROYED di sini, biar gak auto-kick pas baru connect
                 if (!snapshot.exists()) return 
                 val sender = snapshot.child("senderId").value?.toString() ?: ""
                 if (sender == clientId) return
@@ -27,8 +27,8 @@ class ListenTogetherFirebaseClient {
             }
             override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
-        db.getReference("sessions/$code/state").addValueEventListener(listener)
-        awaitClose { db.getReference("sessions/$code/state").removeEventListener(listener) }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
     }
 
     fun send(code: String, msg: WsMessage, isHost: Boolean = false) {
@@ -43,14 +43,21 @@ class ListenTogetherFirebaseClient {
         if (msg.type == "LEAVE") db.getReference("sessions/$code/participants/${msg.senderId}").removeValue()
     }
     
+    fun checkRoomExists(code: String, callback: (Boolean) -> Unit) {
+        // Check root session instead of state for better reliability
+        db.getReference("sessions/$code").get().addOnSuccessListener { callback(it.exists()) }.addOnFailureListener { callback(false) }
+    }
+
+    fun getCurrentState(code: String, onResult: (WsMessage?) -> Unit) {
+        db.getReference("sessions/$code/state").get().addOnSuccessListener { s ->
+            if (!s.exists()) onResult(null) else onResult(WsMessage("SYNC", s.child("trackId").value?.toString(), s.child("extensionId").value?.toString(), s.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L, s.child("isPlaying").value?.toString()?.toBoolean() ?: false, s.child("senderId").value?.toString() ?: "", null, null, s.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L, s.child("trackTitle").value?.toString()))
+        }.addOnFailureListener { onResult(null) }
+    }
+
     fun observeParticipants(code: String): Flow<List<Participant>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                // 🔧 FIX: Guest ditendang kalau Host hapus room (data participants hilang)
-                if (!snapshot.exists()) {
-                    trySend(emptyList()) 
-                    return
-                }
+                if (!snapshot.exists()) { trySend(emptyList()); return }
                 trySend(snapshot.children.mapNotNull { Participant(it.child("id").value?.toString() ?: return@mapNotNull null, it.child("name").value?.toString() ?: "Guest", it.child("avatarUrl").value?.toString(), it.child("isHost").value?.toString()?.toBoolean() ?: false) })
             }
             override fun onCancelled(error: DatabaseError) {}
@@ -61,7 +68,10 @@ class ListenTogetherFirebaseClient {
 
     fun observePermission(code: String): Flow<Int> = callbackFlow {
         val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) { trySend(snapshot.value?.toString()?.toIntOrNull() ?: 0) }
+            override fun onDataChange(snapshot: DataSnapshot) { 
+                // Default to Full Control (3) if permission node doesn't exist
+                trySend(snapshot.value?.toString()?.toIntOrNull() ?: 3) 
+            }
             override fun onCancelled(error: DatabaseError) {}
         }
         db.getReference("sessions/$code/permission").addValueEventListener(listener)
@@ -69,10 +79,4 @@ class ListenTogetherFirebaseClient {
     }
 
     fun setPermission(code: String, level: Int) { db.getReference("sessions/$code/permission").setValue(level) }
-
-    fun getCurrentState(code: String, onResult: (WsMessage?) -> Unit) {
-        db.getReference("sessions/$code/state").get().addOnSuccessListener { s ->
-            if (!s.exists()) onResult(null) else onResult(WsMessage("SYNC", s.child("trackId").value?.toString(), s.child("extensionId").value?.toString(), s.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L, s.child("isPlaying").value?.toString()?.toBoolean() ?: false, s.child("senderId").value?.toString() ?: "", null, null, s.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L, s.child("trackTitle").value?.toString()))
-        }.addOnFailureListener { onResult(null) }
-    }
 }
