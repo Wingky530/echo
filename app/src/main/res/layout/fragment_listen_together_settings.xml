@@ -3,11 +3,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.MaterialToolbar
-    android:fitsSystemWindows="true"
-    android:paddingTop="32dp"
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
@@ -24,15 +23,6 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!-- Avatar Preview -->
-    
-    <com.google.android.material.imageview.ShapeableImageView
-        android:id="@+id/ivIdenticonPreview"
-        android:layout_width="96dp"
-        android:layout_height="96dp"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="24dp"
-        android:visibility="gone" />
             <FrameLayout
                 android:layout_width="96dp"
                 android:layout_height="96dp"
@@ -40,6 +30,12 @@
                 android:layout_marginBottom="24dp"
                 android:background="@drawable/rounded_rectangle_cover_profile"
                 android:backgroundTint="?colorPrimaryContainer">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/ivIdenticonPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/tvAvatarInitial"
@@ -51,7 +47,6 @@
                     android:textColor="?colorOnPrimaryContainer" />
             </FrameLayout>
 
-            <!-- Username Input -->
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -67,7 +62,6 @@
                     android:maxLength="20" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Save Button -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSave"
                 android:layout_width="match_parent"
