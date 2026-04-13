@@ -1,5 +1,8 @@
 package dev.brahmkshatriya.echo.ui.listentogether
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -66,8 +69,8 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
         binding.btnCopy.setOnClickListener {
             val s = vm.state.value as? ListenTogetherState.Active ?: return@setOnClickListener
-            val cb = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.widget.ClipboardManager
-            cb.setPrimaryClip(android.content.ClipData.newPlainText("code", s.sessionCode))
+            val cb = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            cb.setPrimaryClip(ClipData.newPlainText("code", s.sessionCode))
             Toast.makeText(requireContext(), "Code Copied", Toast.LENGTH_SHORT).show()
         }
 
@@ -154,7 +157,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
     companion object {
         const val TAG = "ListenTogetherBottomSheet"
-        // 🔧 FIXED: Fungsi show() yang dicari oleh MediaMore & Settings
         fun show(fm: androidx.fragment.app.FragmentManager, trackId: String? = null, extensionId: String? = null) {
             ListenTogetherBottomSheet().apply {
                 arguments = Bundle().apply {
