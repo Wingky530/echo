@@ -20,7 +20,10 @@ class ListenTogetherFirebaseClient {
         val ref = db.getReference("sessions/$code/state")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (!snapshot.exists()) return
+                if (!snapshot.exists()) {
+                    trySend(WsMessage(type = "ROOM_DESTROYED"))
+                    return
+                }
                 val sender = snapshot.child("senderId").value?.toString() ?: ""
                 if (sender == clientId) return
                 trySend(WsMessage("SYNC", snapshot.child("trackId").value?.toString(), snapshot.child("extensionId").value?.toString(), snapshot.child("positionMs").value?.toString()?.toLongOrNull() ?: 0L, snapshot.child("isPlaying").value?.toString()?.toBoolean() ?: false, sender, null, null, snapshot.child("timestamp").value?.toString()?.toLongOrNull() ?: 0L, snapshot.child("trackTitle").value?.toString()))

@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -48,26 +49,18 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
         binding.rvParticipants.adapter = participantAdapter
         
-        viewLifecycleOwner.lifecycleScope.launch {
-            vm.state.collect { renderState(it) }
-        }
-        viewLifecycleOwner.lifecycleScope.launch {
-            vm.event.collect { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() }
-        }
+        viewLifecycleOwner.lifecycleScope.launch { vm.state.collect { renderState(it) } }
+        viewLifecycleOwner.lifecycleScope.launch { vm.event.collect { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() } }
 
         binding.btnCreate.setOnClickListener {
             val trackId = arguments?.getString("trackId")
-            // Clear Host playlist if playing a single track
-            if (!trackId.isNullOrBlank()) {
-                playerVm.browser.value?.clearMediaItems()
-            }
+            if (!trackId.isNullOrBlank()) playerVm.browser.value?.clearMediaItems()
             vm.createSession(trackId, arguments?.getString("extensionId"), getActiveUsername(), getActiveAvatar())
         }
 
         binding.btnJoin.setOnClickListener {
             val code = binding.etCode.text?.toString()?.trim()
             if (!code.isNullOrBlank() && code.length >= 6) {
-                // Clear Guest playlist before joining
                 playerVm.browser.value?.clearMediaItems()
                 vm.joinSession(code, getActiveUsername(), getActiveAvatar())
             } else {
@@ -86,28 +79,30 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         
         binding.btnSettings.setOnClickListener {
             val currentPerm = vm.permission.value
-            val options = arrayOf("Add to Playlist", "Playback Control")
-            val checkedItems = booleanArrayOf(currentPerm >= 1, currentPerm >= 2)
+            val options = arrayOf("Full Control", "Add/Remove Music", "Playback Control")
+            val checkedItems = booleanArrayOf(currentPerm == 3, (currentPerm and 1) != 0, (currentPerm and 2) != 0)
 
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Guest Permissions")
-                .setMultiChoiceItems(options, checkedItems) { _, which, isChecked ->
-                    if (which == 1 && isChecked) {
-                        checkedItems[0] = true // If Playback is on, Playlist must be on
-                        checkedItems[1] = true
-                    } else if (which == 0 && !isChecked) {
-                        checkedItems[0] = false
-                        checkedItems[1] = false // If Playlist is off, Playback must be off
+                .setMultiChoiceItems(options, checkedItems) { dialog, which, isChecked ->
+                    val listView = (dialog as AlertDialog).listView
+                    if (which == 0) {
+                        checkedItems[0] = isChecked
+                        checkedItems[1] = isChecked
+                        checkedItems[2] = isChecked
+                        listView.setItemChecked(1, isChecked)
+                        listView.setItemChecked(2, isChecked)
                     } else {
                         checkedItems[which] = isChecked
+                        val both = checkedItems[1] && checkedItems[2]
+                        checkedItems[0] = both
+                        listView.setItemChecked(0, both)
                     }
                 }
                 .setPositiveButton("Save") { _, _ ->
-                    val newLevel = when {
-                        checkedItems[1] -> 2 
-                        checkedItems[0] -> 1 
-                        else -> 0        
-                    }
+                    var newLevel = 0
+                    if (checkedItems[1]) newLevel += 1
+                    if (checkedItems[2]) newLevel += 2
                     vm.updatePermission(newLevel)
                 }
                 .setNegativeButton("Cancel", null)
@@ -142,11 +137,11 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             val joinedUsers = state.participants.filter { p -> previousParticipants.none { it.id == p.id } }
             if (previousParticipants.isNotEmpty()) { joinedUsers.forEach { user -> Toast.makeText(requireContext(), "${user.name} joined the session", Toast.LENGTH_SHORT).show() } }
             previousParticipants = state.participants
+            
             binding.tvSessionCode.text = state.sessionCode
             binding.tvRole.text = if (state.isHost) getString(R.string.listen_together_you_host) else getString(R.string.listen_together_listening_with)
-            binding.btnSettings.isVisible = true
-            binding.btnSettings.alpha = if (state.isHost) 1.0f else 0.5f
-            binding.btnSettings.isEnabled = state.isHost
+            
+            binding.btnSettings.isVisible = state.isHost
 
             participantAdapter.updateData(state.participants.sortedWith(compareBy({ !it.isHost }, { it.name })))
             binding.tvParticipants.text = "Participants (${state.participants.size})"
@@ -156,10 +151,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         if (state is ListenTogetherState.Error) Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+    override fun onDestroyView() { super.onDestroyView(); _binding = null }
 
     inner class ParticipantAdapter : androidx.recyclerview.widget.RecyclerView.Adapter<ParticipantAdapter.VH>() {
         private var items = listOf<Participant>()

@@ -28,7 +28,7 @@ class ListenTogetherViewModel : ViewModel() {
 
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
-    private val _permission = MutableStateFlow(2) // Default to Full Control
+    private val _permission = MutableStateFlow(3)
     val permission: StateFlow<Int> = _permission
     private val _event = MutableSharedFlow<String>()
     val event = _event.asSharedFlow()
@@ -54,7 +54,7 @@ class ListenTogetherViewModel : ViewModel() {
             try {
                 firebase.send(cleanCode, WsMessage("JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl), false)
                 _state.value = ListenTogetherState.Active(cleanCode, false)
-                firebase.getCurrentState(cleanCode) { msg -> 
+                firebase.getCurrentState(cleanCode) { msg ->
                     if (msg?.trackId != null && msg.extensionId != null) {
                         lastListenerTrackId = msg.trackId
                         playAction?.invoke(msg.extensionId, dev.brahmkshatriya.echo.common.models.Track(id = msg.trackId, title = msg.trackTitle ?: "Listen Together", extras = mapOf(dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.EXTENSION_ID to msg.extensionId)), false)
@@ -72,7 +72,6 @@ class ListenTogetherViewModel : ViewModel() {
     fun leaveSession() {
         val s = _state.value as? ListenTogetherState.Active ?: return
         if (s.isHost) {
-            // Destroy the entire room if host leaves
             com.google.firebase.database.FirebaseDatabase.getInstance("https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app").getReference("sessions/${s.sessionCode}").removeValue()
         } else {
             firebase.send(s.sessionCode, WsMessage("LEAVE", senderId = firebase.clientId))
@@ -102,6 +101,11 @@ class ListenTogetherViewModel : ViewModel() {
     private fun startListening(code: String, isHost: Boolean) {
         listenJob?.cancel(); listenJob = viewModelScope.launch {
             firebase.connect(code).collect { msg ->
+                if (msg.type == "ROOM_DESTROYED") {
+                    viewModelScope.launch { _event.emit("Host has ended the session") }
+                    leaveSession()
+                    return@collect
+                }
                 if (msg.type == "SYNC" && !isHost) {
                     val extId = msg.extensionId ?: return@collect
                     if (lastListenerTrackId != msg.trackId) {
