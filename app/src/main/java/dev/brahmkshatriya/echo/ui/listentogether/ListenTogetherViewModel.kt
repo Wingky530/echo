@@ -104,7 +104,7 @@ class ListenTogetherViewModel : ViewModel() {
     fun broadcastSync(trackId: String, extensionId: String?, positionMs: Long, isPlaying: Boolean, trackTitle: String? = null) {
         val s = _state.value as? ListenTogetherState.Active ?: return
         if (!s.isHost) return
-        firebase.send(s.sessionCode, WsMessage(type = "SYNC", trackId = trackId, extensionId = extensionId, positionMs = positionMs, isPlaying = isPlaying, trackTitle = trackTitle, senderId = firebase.clientId, timestamp = System.currentTimeMillis()), isHost = true)
+        firebase.send(s.sessionCode, WsMessage(type = "SYNC", trackId = trackId, extensionId = extensionId, positionMs = positionMs, isPlaying = isPlaying, trackTitle = trackTitle, senderId = firebase.clientId, senderName = s.participants.find { it.id == firebase.clientId }?.name, senderAvatar = s.participants.find { it.id == firebase.clientId }?.avatarUrl, timestamp = System.currentTimeMillis()), isHost = true)
     }
 
     fun leaveSession() {
