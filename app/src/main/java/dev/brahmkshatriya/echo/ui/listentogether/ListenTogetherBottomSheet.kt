@@ -123,6 +123,11 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         } else {
             previousParticipants = emptyList()
         }
+
+        // 🛡️ RE-ADDED: Catch Error states and show Toast
+        if (state is ListenTogetherState.Error) {
+            Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun getActiveUsername(): String {

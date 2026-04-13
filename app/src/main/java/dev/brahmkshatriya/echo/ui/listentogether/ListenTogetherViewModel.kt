@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dev.brahmkshatriya.echo.playback.MediaItemUtils.extensionId
 import dev.brahmkshatriya.echo.playback.MediaItemUtils.track
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -28,9 +29,11 @@ class ListenTogetherViewModel : ViewModel() {
 
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
-    private val _permission = MutableStateFlow(3) // Default to Full Control (Bitmask 3)
+    private val _permission = MutableStateFlow(3) 
     val permission: StateFlow<Int> = _permission
-    private val _event = MutableSharedFlow<String>()
+    
+    // Add extra buffer so toasts aren't killed immediately during disconnects
+    private val _event = MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val event = _event.asSharedFlow()
 
     private val firebase = ListenTogetherFirebaseClient()
@@ -38,6 +41,7 @@ class ListenTogetherViewModel : ViewModel() {
     private var participantsJob: Job? = null
     private var permissionJob: Job? = null
     private var hostBroadcastJob: Job? = null
+    private var guestEnforcerJob: Job? = null
     private var lastListenerTrackId: String? = null
     private var lastHostMsg: WsMessage? = null
 
@@ -45,7 +49,7 @@ class ListenTogetherViewModel : ViewModel() {
         val code = (1..6).map { "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Random.nextInt(32)] }.joinToString("")
         _state.value = ListenTogetherState.Active(code, true, listOf(Participant(firebase.clientId, userName, avatarUrl, true)))
         firebase.send(code, WsMessage("JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl), true)
-        firebase.setPermission(code, 3) // Push default Full Control to Firebase
+        firebase.setPermission(code, 3) 
         startListening(code, true); startHostBroadcast(code); observeParticipants(code); observePermission(code)
     }
 
@@ -55,7 +59,6 @@ class ListenTogetherViewModel : ViewModel() {
         
         firebase.checkRoomExists(cleanCode) { exists ->
             if (!exists) {
-                // If room doesn't exist, set error state to trigger Toast
                 _state.value = ListenTogetherState.Error("Room does not exist or has ended")
                 return@checkRoomExists
             }
@@ -70,6 +73,7 @@ class ListenTogetherViewModel : ViewModel() {
                         }
                     }
                     startListening(cleanCode, false); observeParticipants(cleanCode); observePermission(cleanCode)
+                    startGuestEnforcer()
                 } catch (e: Exception) { _state.value = ListenTogetherState.Error(e.message ?: "Failed to join") }
             }
         }
@@ -101,7 +105,8 @@ class ListenTogetherViewModel : ViewModel() {
         } else {
             firebase.send(s.sessionCode, WsMessage("LEAVE", senderId = firebase.clientId))
         }
-        listenJob?.cancel(); participantsJob?.cancel(); permissionJob?.cancel(); hostBroadcastJob?.cancel(); _state.value = ListenTogetherState.Idle
+        listenJob?.cancel(); participantsJob?.cancel(); permissionJob?.cancel(); hostBroadcastJob?.cancel(); guestEnforcerJob?.cancel()
+        _state.value = ListenTogetherState.Idle
     }
 
     private fun startHostBroadcast(code: String) {
@@ -128,12 +133,55 @@ class ListenTogetherViewModel : ViewModel() {
         }
     }
 
+    private fun startGuestEnforcer() {
+        guestEnforcerJob?.cancel(); guestEnforcerJob = viewModelScope.launch {
+            while (true) {
+                delay(1500)
+                val s = _state.value as? ListenTogetherState.Active ?: break
+                if (s.isHost) break
+                
+                val hostMsg = lastHostMsg ?: continue
+                val perm = _permission.value
+                val hasAddRemove = (perm and 1) != 0
+                val hasPlayback = (perm and 2) != 0
+                
+                val localBrowser = browserProvider?.invoke() ?: continue
+                val localIsPlaying = isPlayingProvider?.invoke() ?: false
+                val localTrackId = playerState?.current?.value?.mediaItem?.track?.id
+                
+                // Enforce Track Sync
+                if (!hasAddRemove && localTrackId != null && hostMsg.trackId != null && localTrackId != hostMsg.trackId) {
+                    _event.tryEmit("No permission to change track")
+                    applyRemoteState(hostMsg)
+                    continue
+                }
+                
+                // Enforce Playback Control
+                if (!hasPlayback) {
+                    var enforced = false
+                    if (localIsPlaying != hostMsg.isPlaying) {
+                        setPlayingAction?.invoke(hostMsg.isPlaying)
+                        enforced = true
+                    }
+                    val expectedPos = hostMsg.positionMs + if (hostMsg.isPlaying) System.currentTimeMillis() - hostMsg.timestamp else 0
+                    if (abs(localBrowser.currentPosition - expectedPos) > 3500) {
+                        seekAction?.invoke(expectedPos)
+                        enforced = true
+                    }
+                    if (enforced) _event.tryEmit("No permission to control playback")
+                }
+            }
+        }
+    }
+
     private fun observeParticipants(code: String) {
         participantsJob?.cancel(); participantsJob = viewModelScope.launch {
             firebase.observeParticipants(code).collect { p ->
                 val s = _state.value as? ListenTogetherState.Active ?: return@collect
                 if (!s.isHost && p.isEmpty()) { 
-                    _event.emit("Host has ended the session"); leaveSession(); return@collect 
+                    _event.tryEmit("Host has ended the session") 
+                    leaveSession()
+                    return@collect 
                 }
                 _state.value = s.copy(participants = p)
             }
