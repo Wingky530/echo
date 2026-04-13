@@ -7,7 +7,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.brahmkshatriya.echo.playback.MediaItemUtils.extensionId
 import dev.brahmkshatriya.echo.playback.MediaItemUtils.track
-import dev.brahmkshatriya.echo.common.models.Track
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -29,8 +28,8 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     var browserProvider: (() -> androidx.media3.session.MediaController?)? = null
     var isPlayingProvider: (() -> Boolean)? = null
     
-    // UPDATE: playAction now supports a List of Tracks for Queue Context injection
-    var playAction: ((String, List<Track>, Boolean) -> Unit)? = null
+    // REVERTED: Kembali ke Track tunggal biar BottomSheet dan Player nggak error
+    var playAction: ((String, dev.brahmkshatriya.echo.common.models.Track, Boolean) -> Unit)? = null
     var seekAction: ((Long) -> Unit)? = null
     var setPlayingAction: ((Boolean) -> Unit)? = null
 
@@ -52,7 +51,6 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     private var expectedTrackId: String? = null
     private var expectedIsPlaying: Boolean? = null
     private var lastSeenTrackId: String? = null
-    private var lastSeenQueueContext: String? = null
     private var lastSeenIsPlaying: Boolean? = null
     private var lastSeenPosition: Long = 0L
     private var lastLocalActionTime = 0L
@@ -65,6 +63,7 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    // KEEPS: Menyimpan nama user lokal biar Auto-Radio tetep dapet label "Added By"
     private fun saveLocalUserToPrefs(userName: String, avatarUrl: String?) {
         val prefs = getApplication<Application>().getSharedPreferences("listen_together_prefs", Context.MODE_PRIVATE)
         prefs.edit().putString("localUserName", userName).putString("localAvatarUrl", avatarUrl).apply()
@@ -115,7 +114,6 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    // UPDATE: Inject multiple tracks instead of one
     private suspend fun applyRemoteState(msg: WsMessage, senderName: String? = null, senderAvatar: String? = null) {
         val extId = msg.extensionId ?: return
         val localTrackId = playerState?.current?.value?.mediaItem?.track?.id
@@ -123,36 +121,20 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
         expectedTrackId = msg.trackId
         expectedIsPlaying = msg.isPlaying
         
-        // Track ID or Queue Context changed -> Force full queue reload
-        if (localTrackId != msg.trackId || lastSeenQueueContext != msg.queueContext) {
+        if (localTrackId != msg.trackId) {
             val trackExtras = mutableMapOf<String, String>()
             trackExtras[dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.EXTENSION_ID] = extId
             senderName?.let { trackExtras["addedByName"] = it }
             senderAvatar?.let { trackExtras["addedByAvatar"] = it }
 
-            val trackListToLoad = mutableListOf<Track>()
-            
-            // First add the currently playing track
-            trackListToLoad.add(
-                Track(id = msg.trackId ?: "", title = msg.trackTitle ?: "Listen Together", extras = trackExtras)
+            val track = dev.brahmkshatriya.echo.common.models.Track(
+                id = msg.trackId ?: "", 
+                title = msg.trackTitle ?: "Listen Together", 
+                extras = trackExtras
             )
-
-            // Parse Queue Context and append upcoming tracks to eliminate buffer delays
-            if (!msg.queueContext.isNullOrEmpty()) {
-                val upNextIds = msg.queueContext.split(",")
-                for (id in upNextIds) {
-                    if (id.isNotBlank() && id != msg.trackId) {
-                        trackListToLoad.add(Track(id = id, title = "Upcoming Track", extras = trackExtras))
-                    }
-                }
-            }
-
-            // Fire the updated playAction which now accepts List<Track>
-            playAction?.invoke(extId, trackListToLoad, false)
-            lastSeenQueueContext = msg.queueContext
-            delay(1500) // Buffer wait
+            playAction?.invoke(extId, track, false)
+            delay(1500) 
         }
-
         if ((isPlayingProvider?.invoke() ?: false) != msg.isPlaying) {
             setPlayingAction?.invoke(msg.isPlaying)
         }
@@ -185,53 +167,21 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     private fun startSyncManager() {
         syncManagerJob?.cancel(); syncManagerJob = viewModelScope.launch {
             while (true) {
-                delay(500) 
+                delay(400) 
                 if (isApplyingRemoteState) continue 
 
                 val s = _state.value as? ListenTogetherState.Active ?: break
                 val localBrowser = browserProvider?.invoke() ?: continue
                 val localIsPlaying = isPlayingProvider?.invoke() ?: false
-                
-                // Track Extraction
-                val currentMediaItem = playerState?.current?.value?.mediaItem ?: continue
-                val localTrackId = currentMediaItem.track.id
-                val localTitle = currentMediaItem.track.title
-                val extId = currentMediaItem.extensionId
+                val localTrackId = playerState?.current?.value?.mediaItem?.track?.id ?: continue
+                val localTitle = playerState?.current?.value?.mediaItem?.track?.title
+                val extId = playerState?.current?.value?.mediaItem?.extensionId ?: continue
                 val localPos = localBrowser.currentPosition
 
-                // Extract Upcoming Queue (Next 10 tracks to prevent payload bloat)
-                var currentQueueContext = ""
-                try {
-                    val queueSize = localBrowser.mediaItemCount
-                    val currentIndex = localBrowser.currentMediaItemIndex
-                    if (queueSize > 0 && currentIndex != -1) {
-                        val upcomingIds = mutableListOf<String>()
-                        val maxNextTracks = minOf(currentIndex + 10, queueSize)
-                        for (i in currentIndex + 1 until maxNextTracks) {
-                            val nextItem = localBrowser.getMediaItemAt(i)
-                            // Using extension ID fallback check just in case
-                            val nextId = nextItem.mediaId
-                            if(nextId.isNotEmpty()) upcomingIds.add(nextId)
-                        }
-                        if (upcomingIds.isNotEmpty()) {
-                            currentQueueContext = upcomingIds.joinToString(",")
-                        }
-                    }
-                } catch (e: Exception) {
-                    // Fail silently if ExoPlayer isn't ready
-                }
-
                 var genuineTrackChange = false
-                var genuineQueueChange = false
-                
                 if (localTrackId != lastSeenTrackId) {
                     if (lastSeenTrackId != null && localTrackId != expectedTrackId) genuineTrackChange = true
                     lastSeenTrackId = localTrackId
-                }
-
-                if (currentQueueContext != lastSeenQueueContext) {
-                    genuineQueueChange = true
-                    lastSeenQueueContext = currentQueueContext
                 }
 
                 var genuinePlayChange = false
@@ -244,15 +194,11 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
                 if (abs(localPos - lastSeenPosition) > 2500) genuineSeek = true
                 lastSeenPosition = localPos
 
-                val localMadeChange = genuineTrackChange || genuinePlayChange || genuineSeek || genuineQueueChange
+                val localMadeChange = genuineTrackChange || genuinePlayChange || genuineSeek
 
                 if (s.isHost) {
                     if (localMadeChange || System.currentTimeMillis() - lastLocalActionTime > 3000) {
-                        val newMsg = WsMessage(
-                            "SYNC", localTrackId, extId, localPos, localIsPlaying, 
-                            firebase.clientId, timestamp = System.currentTimeMillis(), 
-                            trackTitle = localTitle, queueContext = currentQueueContext
-                        )
+                        val newMsg = WsMessage("SYNC", localTrackId, extId, localPos, localIsPlaying, firebase.clientId, timestamp = System.currentTimeMillis(), trackTitle = localTitle)
                         firebase.send(s.sessionCode, newMsg, true)
                         lastLocalActionTime = System.currentTimeMillis()
                         expectedTrackId = localTrackId
@@ -266,15 +212,11 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
 
                     if (localMadeChange) {
                         var allowed = true
-                        if ((genuineTrackChange || genuineQueueChange) && !hasAddRemove) { allowed = false; showToast("No permission to change queue") }
+                        if (genuineTrackChange && !hasAddRemove) { allowed = false; showToast("No permission to change track") }
                         if ((genuinePlayChange || genuineSeek) && !hasPlayback) { allowed = false; showToast("No permission to control playback") }
 
                         if (allowed) {
-                            val newMsg = WsMessage(
-                                "SYNC", localTrackId, extId, localPos, localIsPlaying, 
-                                firebase.clientId, timestamp = System.currentTimeMillis(), 
-                                trackTitle = localTitle, queueContext = currentQueueContext
-                            )
+                            val newMsg = WsMessage("SYNC", localTrackId, extId, localPos, localIsPlaying, firebase.clientId, timestamp = System.currentTimeMillis(), trackTitle = localTitle)
                             firebase.send(s.sessionCode, newMsg, false)
                             lastLocalActionTime = System.currentTimeMillis()
                             expectedTrackId = localTrackId
