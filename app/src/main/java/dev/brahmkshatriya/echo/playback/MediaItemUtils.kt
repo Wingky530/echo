@@ -54,7 +54,7 @@ object MediaItemUtils {
     ): MediaItem = with(mediaItem) {
         val item = buildUpon()
         val metadata = state.toMetaData(
-            mediaMetadata.extras!!, downloads, context, true, app
+            mediaMetadata.extrascd ~/echo, downloads, context, true, app
         )
         item.setMediaMetadata(metadata)
         return item.build()
@@ -186,6 +186,11 @@ object MediaItemUtils {
                 putSerialized("state", this@toMetaData)
                 putSerialized("context", context)
                 putBoolean("loaded", loaded)
+                
+                // Added by User support
+                putString("addedByName", bundle.getString("addedByName"))
+                putString("addedByAvatar", bundle.getString("addedByAvatar"))
+
                 putInt("subtitleIndex", subtitleIndex ?: 0.takeIf { subtitles.isNotEmpty() } ?: -1)
                 putInt(
                     "backgroundIndex", backgroundIndex ?: 0.takeIf {
@@ -228,6 +233,10 @@ object MediaItemUtils {
     val Bundle?.unloadedCover
         get() = this?.getSerialized<ImageHolder?>("unloadedCover")?.getOrNull()
     val Bundle?.downloaded get() = this?.getSerialized<List<String>>("downloaded")?.getOrNull()
+    
+    // Added By mapping
+    val Bundle?.addedByName get() = this?.getString("addedByName")
+    val Bundle?.addedByAvatar get() = this?.getString("addedByAvatar")
 
     val MediaItem.state get() = mediaMetadata.extras.state
     val MediaItem.track get() = mediaMetadata.extras.track
@@ -244,6 +253,10 @@ object MediaItemUtils {
     val MediaItem.retries get() = mediaMetadata.extras.retries
     val MediaItem.unloadedCover get() = mediaMetadata.extras.unloadedCover
     val MediaItem.downloaded get() = mediaMetadata.extras.downloaded
+    
+    // MediaItem Extensions for Added By
+    val MediaItem.addedByName get() = mediaMetadata.extras.addedByName
+    val MediaItem.addedByAvatar get() = mediaMetadata.extras.addedByAvatar
 
     private fun Streamable.SubtitleType.toMimeType() = when (this) {
         Streamable.SubtitleType.VTT -> MimeTypes.TEXT_VTT
