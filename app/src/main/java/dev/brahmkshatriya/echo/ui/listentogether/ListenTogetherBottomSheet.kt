@@ -112,6 +112,11 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
 
         if (state is ListenTogetherState.Active) {
             val currentList = state.participants
+            
+            // Restore missing leftUsers detection
+            val leftUsers = previousParticipants.filter { p -> currentList.none { it.id == p.id } }
+            leftUsers.forEach { Toast.makeText(requireContext(), "${it.name} left", Toast.LENGTH_SHORT).show() }
+
             val joinedUsers = currentList.filter { p -> previousParticipants.none { it.id == p.id } }
             if (previousParticipants.isNotEmpty()) {
                 joinedUsers.forEach { Toast.makeText(requireContext(), "${it.name} joined", Toast.LENGTH_SHORT).show() }
@@ -124,7 +129,6 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
             previousParticipants = emptyList()
         }
 
-        // 🛡️ RE-ADDED: Catch Error states and show Toast
         if (state is ListenTogetherState.Error) {
             Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
         }
