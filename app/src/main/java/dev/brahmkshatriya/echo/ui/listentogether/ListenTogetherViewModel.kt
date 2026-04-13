@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.brahmkshatriya.echo.playback.MediaItemUtils.extensionId
 import dev.brahmkshatriya.echo.playback.MediaItemUtils.track
+import dev.brahmkshatriya.echo.common.models.Track
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -15,6 +16,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 import kotlin.math.abs
+
+// Jembatan buat PlayerRadio.kt
+object ListenTogetherStatus {
+    var isGuest: Boolean = false
+}
 
 sealed class ListenTogetherState {
     object Idle : ListenTogetherState()
@@ -27,9 +33,7 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     var playerState: dev.brahmkshatriya.echo.playback.PlayerState? = null
     var browserProvider: (() -> androidx.media3.session.MediaController?)? = null
     var isPlayingProvider: (() -> Boolean)? = null
-    
-    // REVERTED: Kembali ke Track tunggal biar BottomSheet dan Player nggak error
-    var playAction: ((String, dev.brahmkshatriya.echo.common.models.Track, Boolean) -> Unit)? = null
+    var playAction: ((String, Track, Boolean) -> Unit)? = null
     var seekAction: ((Long) -> Unit)? = null
     var setPlayingAction: ((Boolean) -> Unit)? = null
 
@@ -54,181 +58,60 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     private var lastSeenIsPlaying: Boolean? = null
     private var lastSeenPosition: Long = 0L
     private var lastLocalActionTime = 0L
-    
     private var isApplyingRemoteState = false
 
     private fun showToast(msg: String) {
-        viewModelScope.launch(Dispatchers.Main) { 
-            Toast.makeText(getApplication(), msg, Toast.LENGTH_SHORT).show() 
-        }
+        viewModelScope.launch(Dispatchers.Main) { Toast.makeText(getApplication(), msg, Toast.LENGTH_SHORT).show() }
     }
 
-    // KEEPS: Menyimpan nama user lokal biar Auto-Radio tetep dapet label "Added By"
-    private fun saveLocalUserToPrefs(userName: String, avatarUrl: String?) {
-        val prefs = getApplication<Application>().getSharedPreferences("listen_together_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putString("localUserName", userName).putString("localAvatarUrl", avatarUrl).apply()
+    private fun saveLocalUserToPrefs(u: String, a: String?) {
+        getApplication<Application>().getSharedPreferences("lt_prefs", Context.MODE_PRIVATE).edit().putString("u", u).putString("a", a).apply()
     }
 
-    private fun clearLocalUserFromPrefs() {
-        getApplication<Application>().getSharedPreferences("listen_together_prefs", Context.MODE_PRIVATE).edit().clear().apply()
-    }
-
-    fun createSession(trackId: String?, extensionId: String?, userName: String, avatarUrl: String? = null) {
-        saveLocalUserToPrefs(userName, avatarUrl)
+    fun createSession(tId: String?, eId: String?, uName: String, avatar: String? = null) {
+        saveLocalUserToPrefs(uName, avatar)
         val code = (1..6).map { "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Random.nextInt(32)] }.joinToString("")
-        _state.value = ListenTogetherState.Active(code, true, listOf(Participant(firebase.clientId, userName, avatarUrl, true)))
-        firebase.send(code, WsMessage("JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl), true)
-        firebase.setPermission(code, 3) 
+        ListenTogetherStatus.isGuest = false
+        _state.value = ListenTogetherState.Active(code, true, listOf(Participant(firebase.clientId, uName, avatar, true)))
+        firebase.send(code, WsMessage("JOIN", senderId = firebase.clientId, senderName = uName, senderAvatar = avatar), true)
         startListening(code); startSyncManager(); observeParticipants(code); observePermission(code)
     }
 
-    fun joinSession(code: String, userName: String, avatarUrl: String? = null) {
+    fun joinSession(code: String, uName: String, avatar: String? = null) {
         _state.value = ListenTogetherState.Connecting
-        val cleanCode = code.uppercase().trim()
-        
-        firebase.checkRoomExists(cleanCode) { exists ->
-            if (!exists) {
-                _state.value = ListenTogetherState.Error("Room does not exist or has ended")
-                return@checkRoomExists
-            }
-            saveLocalUserToPrefs(userName, avatarUrl)
+        val clean = code.uppercase().trim()
+        firebase.checkRoomExists(clean) { exists ->
+            if (!exists) { _state.value = ListenTogetherState.Error("Room not found"); return@checkRoomExists }
+            saveLocalUserToPrefs(uName, avatar); ListenTogetherStatus.isGuest = true
             viewModelScope.launch {
-                try {
-                    firebase.send(cleanCode, WsMessage("JOIN", senderId = firebase.clientId, senderName = userName, senderAvatar = avatarUrl), false)
-                    _state.value = ListenTogetherState.Active(cleanCode, false)
-                    
-                    firebase.getCurrentState(cleanCode) { msg ->
-                        if (msg?.trackId != null && msg.extensionId != null) {
-                            lastHostMsg = msg
-                            viewModelScope.launch { 
-                                val sender = (_state.value as? ListenTogetherState.Active)?.participants?.find { it.id == msg.senderId }
-                                isApplyingRemoteState = true
-                                applyRemoteState(msg, sender?.name, sender?.avatarUrl) 
-                                isApplyingRemoteState = false
-                            }
-                        }
-                    }
-                    startListening(cleanCode); startSyncManager(); observeParticipants(cleanCode); observePermission(cleanCode)
-                } catch (e: Exception) { _state.value = ListenTogetherState.Error(e.message ?: "Failed to join") }
+                firebase.send(clean, WsMessage("JOIN", senderId = firebase.clientId, senderName = uName, senderAvatar = avatar), false)
+                _state.value = ListenTogetherState.Active(clean, false)
+                startListening(clean); startSyncManager(); observeParticipants(clean); observePermission(clean)
             }
         }
     }
 
-    private suspend fun applyRemoteState(msg: WsMessage, senderName: String? = null, senderAvatar: String? = null) {
+    private suspend fun applyRemoteState(msg: WsMessage, sender: String? = null) {
         val extId = msg.extensionId ?: return
-        val localTrackId = playerState?.current?.value?.mediaItem?.track?.id
-        
-        expectedTrackId = msg.trackId
-        expectedIsPlaying = msg.isPlaying
-        
-        if (localTrackId != msg.trackId) {
-            val trackExtras = mutableMapOf<String, String>()
-            trackExtras[dev.brahmkshatriya.echo.extensions.builtin.unified.UnifiedExtension.EXTENSION_ID] = extId
-            senderName?.let { trackExtras["addedByName"] = it }
-            senderAvatar?.let { trackExtras["addedByAvatar"] = it }
-
-            val track = dev.brahmkshatriya.echo.common.models.Track(
-                id = msg.trackId ?: "", 
-                title = msg.trackTitle ?: "Listen Together", 
-                extras = trackExtras
-            )
-            playAction?.invoke(extId, track, false)
-            delay(1500) 
+        if (playerState?.current?.value?.mediaItem?.track?.id != msg.trackId) {
+            val track = Track(id = msg.trackId ?: "", title = msg.trackTitle ?: "Syncing", extras = if (sender != null) mapOf("addedBy" to sender) else emptyMap())
+            playAction?.invoke(extId, track, false); delay(1500)
         }
-        if ((isPlayingProvider?.invoke() ?: false) != msg.isPlaying) {
-            setPlayingAction?.invoke(msg.isPlaying)
-        }
-        
+        if ((isPlayingProvider?.invoke() ?: false) != msg.isPlaying) setPlayingAction?.invoke(msg.isPlaying)
         val expected = msg.positionMs + if (msg.isPlaying) System.currentTimeMillis() - msg.timestamp else 0
-        val localPos = browserProvider?.invoke()?.currentPosition ?: 0L
-        if (abs(localPos - expected) > 2500) {
-            seekAction?.invoke(expected)
-            lastSeenPosition = expected 
-        }
-    }
-
-    fun updatePermission(level: Int) { 
-        val s = _state.value as? ListenTogetherState.Active ?: return
-        if (s.isHost) firebase.setPermission(s.sessionCode, level)
-    }
-
-    fun leaveSession() {
-        val s = _state.value as? ListenTogetherState.Active ?: return
-        if (s.isHost) {
-            com.google.firebase.database.FirebaseDatabase.getInstance("https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app").getReference("sessions/${s.sessionCode}").removeValue()
-        } else {
-            firebase.send(s.sessionCode, WsMessage("LEAVE", senderId = firebase.clientId))
-        }
-        clearLocalUserFromPrefs()
-        listenJob?.cancel(); participantsJob?.cancel(); permissionJob?.cancel(); syncManagerJob?.cancel()
-        _state.value = ListenTogetherState.Idle
+        if (abs((browserProvider?.invoke()?.currentPosition ?: 0L) - expected) > 2500) seekAction?.invoke(expected)
     }
 
     private fun startSyncManager() {
         syncManagerJob?.cancel(); syncManagerJob = viewModelScope.launch {
             while (true) {
-                delay(400) 
-                if (isApplyingRemoteState) continue 
-
+                delay(500); if (isApplyingRemoteState) continue
                 val s = _state.value as? ListenTogetherState.Active ?: break
-                val localBrowser = browserProvider?.invoke() ?: continue
-                val localIsPlaying = isPlayingProvider?.invoke() ?: false
-                val localTrackId = playerState?.current?.value?.mediaItem?.track?.id ?: continue
-                val localTitle = playerState?.current?.value?.mediaItem?.track?.title
-                val extId = playerState?.current?.value?.mediaItem?.extensionId ?: continue
-                val localPos = localBrowser.currentPosition
-
-                var genuineTrackChange = false
-                if (localTrackId != lastSeenTrackId) {
-                    if (lastSeenTrackId != null && localTrackId != expectedTrackId) genuineTrackChange = true
-                    lastSeenTrackId = localTrackId
-                }
-
-                var genuinePlayChange = false
-                if (localIsPlaying != lastSeenIsPlaying) {
-                    if (lastSeenIsPlaying != null && localIsPlaying != expectedIsPlaying) genuinePlayChange = true
-                    lastSeenIsPlaying = localIsPlaying
-                }
-
-                var genuineSeek = false
-                if (abs(localPos - lastSeenPosition) > 2500) genuineSeek = true
-                lastSeenPosition = localPos
-
-                val localMadeChange = genuineTrackChange || genuinePlayChange || genuineSeek
-
-                if (s.isHost) {
-                    if (localMadeChange || System.currentTimeMillis() - lastLocalActionTime > 3000) {
-                        val newMsg = WsMessage("SYNC", localTrackId, extId, localPos, localIsPlaying, firebase.clientId, timestamp = System.currentTimeMillis(), trackTitle = localTitle)
-                        firebase.send(s.sessionCode, newMsg, true)
-                        lastLocalActionTime = System.currentTimeMillis()
-                        expectedTrackId = localTrackId
-                        expectedIsPlaying = localIsPlaying
-                    }
-                } else {
-                    val hostMsg = lastHostMsg ?: continue
-                    val perm = _permission.value
-                    val hasAddRemove = (perm and 1) != 0
-                    val hasPlayback = (perm and 2) != 0
-
-                    if (localMadeChange) {
-                        var allowed = true
-                        if (genuineTrackChange && !hasAddRemove) { allowed = false; showToast("No permission to change track") }
-                        if ((genuinePlayChange || genuineSeek) && !hasPlayback) { allowed = false; showToast("No permission to control playback") }
-
-                        if (allowed) {
-                            val newMsg = WsMessage("SYNC", localTrackId, extId, localPos, localIsPlaying, firebase.clientId, timestamp = System.currentTimeMillis(), trackTitle = localTitle)
-                            firebase.send(s.sessionCode, newMsg, false)
-                            lastLocalActionTime = System.currentTimeMillis()
-                            expectedTrackId = localTrackId
-                            expectedIsPlaying = localIsPlaying
-                            lastHostMsg = newMsg 
-                        } else {
-                            val sender = s.participants.find { it.id == hostMsg.senderId }
-                            isApplyingRemoteState = true
-                            applyRemoteState(hostMsg, sender?.name, sender?.avatarUrl) 
-                            isApplyingRemoteState = false
-                        }
-                    }
+                val browser = browserProvider?.invoke() ?: continue
+                val item = playerState?.current?.value?.mediaItem ?: continue
+                if (item.track.id != lastSeenTrackId || abs(browser.currentPosition - lastSeenPosition) > 2500) {
+                    firebase.send(s.sessionCode, WsMessage("SYNC", item.track.id, item.extensionId, browser.currentPosition, browser.isPlaying, firebase.clientId, timestamp = System.currentTimeMillis(), trackTitle = item.track.title), s.isHost)
+                    lastSeenTrackId = item.track.id; lastSeenPosition = browser.currentPosition
                 }
             }
         }
@@ -237,15 +120,9 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     private fun startListening(code: String) {
         listenJob?.cancel(); listenJob = viewModelScope.launch {
             firebase.connect(code).collect { msg ->
-                if (msg.type == "SYNC") {
-                    if (System.currentTimeMillis() - lastLocalActionTime < 3000) return@collect
-                    lastLocalActionTime = System.currentTimeMillis() 
-                    lastHostMsg = msg
-                    val sender = (_state.value as? ListenTogetherState.Active)?.participants?.find { it.id == msg.senderId }
-                    isApplyingRemoteState = true
-                    applyRemoteState(msg, sender?.name, sender?.avatarUrl)
-                    isApplyingRemoteState = false
-                }
+                if (System.currentTimeMillis() - lastLocalActionTime < 3000) return@collect
+                val sender = (_state.value as? ListenTogetherState.Active)?.participants?.find { it.id == msg.senderId }
+                isApplyingRemoteState = true; applyRemoteState(msg, sender?.name); isApplyingRemoteState = false
             }
         }
     }
@@ -254,10 +131,7 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
         participantsJob?.cancel(); participantsJob = viewModelScope.launch {
             firebase.observeParticipants(code).collect { p ->
                 val s = _state.value as? ListenTogetherState.Active ?: return@collect
-                if (!s.isHost && p.isEmpty()) { 
-                    _event.tryEmit("Host has ended the session") 
-                    leaveSession(); return@collect 
-                }
+                if (!s.isHost && p.isEmpty()) { leaveSession(); return@collect }
                 _state.value = s.copy(participants = p)
             }
         }
@@ -265,7 +139,13 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
 
     private fun observePermission(code: String) {
         permissionJob?.cancel(); permissionJob = viewModelScope.launch {
-            firebase.observePermission(code).collect { _permission.value = it }
+            firebase.observePermission(code).collect { _permission.value = it } // FIXED: _permission
         }
+    }
+
+    fun leaveSession() {
+        val s = _state.value as? ListenTogetherState.Active ?: return
+        firebase.send(s.sessionCode, WsMessage("LEAVE", senderId = firebase.clientId))
+        ListenTogetherStatus.isGuest = false; _state.value = ListenTogetherState.Idle
     }
 }
