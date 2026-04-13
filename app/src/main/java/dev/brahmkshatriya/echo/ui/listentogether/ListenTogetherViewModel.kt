@@ -28,7 +28,7 @@ class ListenTogetherViewModel : ViewModel() {
 
     private val _state = MutableStateFlow<ListenTogetherState>(ListenTogetherState.Idle)
     val state: StateFlow<ListenTogetherState> = _state
-    private val _permission = MutableStateFlow(0)
+    private val _permission = MutableStateFlow(2) // Default to Full Control
     val permission: StateFlow<Int> = _permission
     private val _event = MutableSharedFlow<String>()
     val event = _event.asSharedFlow()
@@ -68,12 +68,17 @@ class ListenTogetherViewModel : ViewModel() {
     }
 
     fun updatePermission(level: Int) { val s = _state.value as? ListenTogetherState.Active ?: return; if (s.isHost) firebase.setPermission(s.sessionCode, level) }
-    
-    fun checkPermission(requiredLevel: Int): Boolean {
-        val s = state.value as? ListenTogetherState.Active ?: return false
-        if (s.isHost || permission.value >= requiredLevel) return true
-        viewModelScope.launch { _event.emit("You do not have permission to perform this action") }
-        return false
+
+    fun leaveSession() {
+        val s = _state.value as? ListenTogetherState.Active ?: return
+        if (s.isHost) {
+            // Destroy the entire room if host leaves
+            com.google.firebase.database.FirebaseDatabase.getInstance("https://echo-listen-together-default-rtdb.asia-southeast1.firebasedatabase.app").getReference("sessions/${s.sessionCode}").removeValue()
+        } else {
+            firebase.send(s.sessionCode, WsMessage("LEAVE", senderId = firebase.clientId))
+        }
+        listenJob?.cancel(); participantsJob?.cancel(); permissionJob?.cancel(); hostBroadcastJob?.cancel(); lastListenerTrackId = null
+        _state.value = ListenTogetherState.Idle
     }
 
     private fun startHostBroadcast(code: String) {
@@ -83,7 +88,8 @@ class ListenTogetherViewModel : ViewModel() {
                 val s = _state.value as? ListenTogetherState.Active ?: break
                 if (!s.isHost) break
                 val current = playerState?.current?.value ?: continue
-                broadcastSync(current.mediaItem.track.id, current.mediaItem.extensionId ?: continue, browserProvider?.invoke()?.currentPosition ?: 0L, isPlayingProvider?.invoke() ?: false, current.mediaItem.track.title)
+                val track = current.mediaItem.track
+                broadcastSync(track.id, current.mediaItem.extensionId ?: continue, browserProvider?.invoke()?.currentPosition ?: 0L, isPlayingProvider?.invoke() ?: false, track.title)
             }
         }
     }
@@ -91,13 +97,6 @@ class ListenTogetherViewModel : ViewModel() {
     fun broadcastSync(tId: String, eId: String?, pMs: Long, isP: Boolean, tTitle: String?) {
         val s = _state.value as? ListenTogetherState.Active ?: return
         if (s.isHost) firebase.send(s.sessionCode, WsMessage("SYNC", tId, eId, pMs, isP, firebase.clientId, timestamp = System.currentTimeMillis(), trackTitle = tTitle), true)
-    }
-
-    fun leaveSession() {
-        val s = _state.value as? ListenTogetherState.Active ?: return
-        firebase.send(s.sessionCode, WsMessage("LEAVE", senderId = firebase.clientId))
-        listenJob?.cancel(); participantsJob?.cancel(); permissionJob?.cancel(); hostBroadcastJob?.cancel(); lastListenerTrackId = null
-        _state.value = ListenTogetherState.Idle
     }
 
     private fun startListening(code: String, isHost: Boolean) {
