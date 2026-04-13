@@ -30,6 +30,7 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
     private val loginVm: LoginUserListViewModel by activityViewModels()
 
     private val participantAdapter = ParticipantAdapter()
+    private var previousParticipants: List<Participant> = emptyList()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = BottomSheetListenTogetherBinding.inflate(inflater, container, false)
@@ -49,6 +50,9 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         
         viewLifecycleOwner.lifecycleScope.launch {
             vm.state.collect { renderState(it) }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            vm.event.collect { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() }
         }
 
         binding.btnCreate.setOnClickListener {
@@ -72,6 +76,15 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         }
 
         binding.btnLeave.setOnClickListener { vm.leaveSession() }
+        binding.btnSettings.setOnClickListener {
+            val options = arrayOf("Listen Only", "Add to Queue", "Full Control")
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Guest Permissions")
+                .setSingleChoiceItems(options, vm.permission.value) { dialog, which ->
+                    vm.updatePermission(which)
+                    dialog.dismiss()
+                }.show()
+        }
     }
 
     private fun getActiveUsername(): String {
@@ -96,14 +109,22 @@ class ListenTogetherBottomSheet : BottomSheetDialogFragment() {
         binding.panelActive.isVisible = state is ListenTogetherState.Active
 
         if (state is ListenTogetherState.Active) {
+            val leftUsers = previousParticipants.filter { p -> state.participants.none { it.id == p.id } }
+            leftUsers.forEach { user -> Toast.makeText(requireContext(), "${user.name} has left the session", Toast.LENGTH_SHORT).show() }
+            val joinedUsers = state.participants.filter { p -> previousParticipants.none { it.id == p.id } }
+            if (previousParticipants.isNotEmpty()) { joinedUsers.forEach { user -> Toast.makeText(requireContext(), "${user.name} joined the session", Toast.LENGTH_SHORT).show() } }
+            previousParticipants = state.participants
             binding.tvSessionCode.text = state.sessionCode
             binding.tvRole.text = if (state.isHost) getString(R.string.listen_together_you_host) else getString(R.string.listen_together_listening_with)
-            binding.btnSettings.isVisible = state.isHost
+            binding.btnSettings.isVisible = true
+            binding.btnSettings.alpha = if (state.isHost) 1.0f else 0.5f
+            binding.btnSettings.isEnabled = state.isHost
 
             participantAdapter.updateData(state.participants.sortedWith(compareBy({ !it.isHost }, { it.name })))
             binding.tvParticipants.text = "Participants (${state.participants.size})"
         }
 
+        if (state !is ListenTogetherState.Active) previousParticipants = emptyList()
         if (state is ListenTogetherState.Error) Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
     }
 
