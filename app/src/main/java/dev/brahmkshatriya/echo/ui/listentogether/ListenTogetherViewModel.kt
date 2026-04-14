@@ -77,8 +77,24 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
                 val s = _state.value as? ListenTogetherState.Active ?: return@collect
                 
                 if (msg.type == "ADD_QUEUE" && s.isHost) {
-                    val trackToAdd = Track(id = msg.trackId ?: "", title = msg.trackTitle ?: "Added Song", extras = emptyMap())
-                    addToQueueAction?.invoke(msg.extensionId ?: "", trackToAdd)
+                    val extId = msg.extensionId ?: ""
+                    val trackToAdd = Track(
+                        id = msg.trackId ?: "",
+                        title = msg.trackTitle ?: "Added Song",
+                        extras = mapOf(
+                            "addedByName" to (msg.senderName ?: "Guest"),
+                            "addedByAvatar" to (msg.senderAvatar ?: "")
+                        )
+                    )
+                    addToQueueAction?.invoke(extId, trackToAdd)
+                } else if (msg.type == "ADD_QUEUE" && !s.isHost) {
+                    val extId = msg.extensionId ?: ""
+                    val trackToAdd = Track(
+                        id = msg.trackId ?: "",
+                        title = msg.trackTitle ?: "Added Song",
+                        extras = mapOf("addedByName" to (msg.senderName ?: "Guest"), "addedByAvatar" to (msg.senderAvatar ?: ""))
+                    )
+                    addToQueueAction?.invoke(extId, trackToAdd)
                 } else if (msg.type == "SYNC") {
                     isApplyingRemoteState = true
                     applyRemoteState(msg)
