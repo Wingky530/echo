@@ -76,7 +76,7 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
             firebase.connect(code).collect { msg ->
                 val s = _state.value as? ListenTogetherState.Active ?: return@collect
                 
-                if (msg.type == "ADD_QUEUE" && s.isHost) {
+                if (msg.type == "ADD_QUEUE" && s.isHost && msg.senderId != firebase.clientId) {
                     val extId = msg.extensionId ?: ""
                     val trackToAdd = Track(
                         id = msg.trackId ?: "",
@@ -117,7 +117,7 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
                     addedIds.forEach { newId ->
                         val newTrack = (0 until browser.mediaItemCount).map { browser.getMediaItemAt(it) }.find { it.track?.id == newId }?.track
                         if (newTrack != null) {
-                            firebase.send(s.sessionCode, WsMessage("ADD_QUEUE", newId, item.extensionId, senderId = firebase.clientId, trackTitle = newTrack.title))
+                            firebase.send(s.sessionCode, WsMessage("ADD_QUEUE", newId, item.extensionId, senderId = firebase.clientId, senderName = ((_state.value as? ListenTogetherState.Active)?.participants?.find { it.id == firebase.clientId }?.name ?: "Host"), senderAvatar = ((_state.value as? ListenTogetherState.Active)?.participants?.find { it.id == firebase.clientId }?.avatarUrl), trackTitle = newTrack.title))
                         }
                     }
                 }
