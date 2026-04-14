@@ -50,6 +50,7 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
     fun createSession(trackId: String?, extId: String?, name: String, avatar: String?) {
         val code = (1..6).map { "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[(0..31).random()] }.joinToString("")
         ListenTogetherStatus.isGuest = false
+        playerState?.radio?.value = dev.brahmkshatriya.echo.playback.PlayerState.Radio.Empty
         _state.value = ListenTogetherState.Active(code, true)
         firebase.send(code, WsMessage("JOIN", senderId = firebase.clientId, senderName = name, senderAvatar = avatar), true)
         firebase.setPermission(code, 3)
@@ -62,6 +63,7 @@ class ListenTogetherViewModel(application: Application) : AndroidViewModel(appli
         firebase.checkRoomExists(cleanCode) { exists ->
             if (exists) {
                 ListenTogetherStatus.isGuest = true
+                playerState?.radio?.value = dev.brahmkshatriya.echo.playback.PlayerState.Radio.Empty
                 _state.value = ListenTogetherState.Active(cleanCode, false)
                 firebase.send(cleanCode, WsMessage("JOIN", senderId = firebase.clientId, senderName = name, senderAvatar = avatar), false)
                 startObserving(cleanCode)
